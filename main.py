@@ -139,10 +139,10 @@ class WebcamApp:
             # Deteksi Tepi Menggunakan Canny
             edges = cv2.Canny(gray_segmented_image, 100, 200)
 
-            plt.imshow(edges)
-            plt.title('Image ')
-            plt.axis('off')
-            plt.show()
+            # plt.imshow(edges)
+            # plt.title('Image ')
+            # plt.axis('off')
+            # plt.show()
             
             # Analisis Mutu dengan Edge Detection
             num_edges = np.count_nonzero(edges)
@@ -170,10 +170,10 @@ class WebcamApp:
 
                 cropped_image = image[y:y+h, x:x+w]
 
-                plt.imshow(cropped_image)
-                plt.title('Image ')
-                plt.axis('off')
-                plt.show()
+                # plt.imshow(cropped_image)
+                # plt.title('Image ')
+                # plt.axis('off')
+                # plt.show()
 
                 # Create an empty mask
                 mask = np.zeros_like(img_gray)
@@ -182,10 +182,10 @@ class WebcamApp:
                 cv2.drawContours(mask, [largest_contour], -1, (255), thickness=cv2.FILLED)
                 
                 segmented_image = cv2.bitwise_and(image, image, mask=mask)
-                plt.imshow(segmented_image)
-                plt.title('Image ')
-                plt.axis('off')
-                plt.show()
+                # plt.imshow(segmented_image)
+                # plt.title('Image ')
+                # plt.axis('off')
+                # plt.show()
                 gray_segmented_image = (255*rgb2gray(np.array(segmented_image))).astype(np.uint8)
                 
                 edges = cv2.Canny(gray_segmented_image, 100, 200)
