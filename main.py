@@ -6,12 +6,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from skimage.color import rgb2gray
 import matplotlib.image as mpimg
-import tkinter as tk
-import cv2
-import os
-import numpy as np
-from PIL import Image, ImageTk
-from skimage.color import rgb2gray
+
 
 class WebcamApp:
     def __init__(self, window):
