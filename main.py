@@ -156,7 +156,7 @@ class WebcamApp:
                 x, y, w, h = cv2.boundingRect(largest_contour)
                 
                 # Calculate dimensions
-                panjang = 0.0154 * w - 0.165
+                panjang = 0.0935 * w - 8.0649
                 lebar = 0.0151 * h - 0.0715
                 PixelPanjang = w
                 PixelLebar = h
