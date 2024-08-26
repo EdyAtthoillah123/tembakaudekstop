@@ -8,6 +8,12 @@ from skimage.color import rgb2gray
 import matplotlib.image as mpimg
 
 
+import tkinter as tk
+import cv2
+from PIL import Image, ImageTk
+import os
+import mysql.connector
+
 class WebcamApp:
     def __init__(self, window):
         self.window = window
@@ -26,6 +32,7 @@ class WebcamApp:
         self.window.grid_columnconfigure(1, weight=1)
         self.window.grid_rowconfigure(0, weight=1)
         self.window.grid_rowconfigure(1, weight=1)
+        
         # Webcam display with border and shadow effect
         self.frame_webcam = tk.Frame(window, bg="#2c3e50", bd=2, relief=tk.RAISED)
         self.frame_webcam.grid(row=0, column=0, padx=20, pady=20)
@@ -89,17 +96,79 @@ class WebcamApp:
             directory = os.path.expanduser("~/Documents/KlasifikasiTembakau")
             if not os.path.exists(directory):
                 os.makedirs(directory)
-            file_path = os.path.join(directory, "captured_image.jpg")
+            
+            # Ambil nama gambar terakhir dan buat nama baru yang unik
+            image_name = self.generate_unique_image_name()
+
+            file_path = os.path.join(directory, image_name)
             self.current_image.save(file_path)
             
+            # Simpan nama file ke database
+            self.save_image_name_to_db(image_name)
+
             # Process the saved image
             self.process_image(file_path)
         else:
             print("No image to save!")
 
+    def generate_unique_image_name(self):
+        # Koneksi ke database
+        conn = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            password="password",
+            database="your_database_name"
+        )
+        cursor = conn.cursor()
+        
+        # Ambil nama gambar terakhir
+        cursor.execute("SELECT image_name FROM images ORDER BY id DESC LIMIT 1")
+        last_image = cursor.fetchone()
+        
+        # Tentukan nomor untuk nama gambar berikutnya
+        if last_image:
+            last_image_name = last_image[0]
+            last_number = int(last_image_name.split("_")[1].split(".")[0])
+            new_number = last_number + 1
+        else:
+            new_number = 1
+        
+        # Buat nama gambar baru
+        new_image_name = f"captured_image_{new_number}.jpg"
+        
+        # Tutup koneksi database
+        cursor.close()
+        conn.close()
+        
+        return new_image_name
+
+    def save_image_name_to_db(self, image_name):
+        # Koneksi ke database
+        conn = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            password="",
+            database="klasifikasi_tembakau"
+        )
+        cursor = conn.cursor()
+        
+        # Simpan nama gambar ke tabel
+        query = "INSERT INTO images (image_name) VALUES (%s)"
+        cursor.execute(query, (image_name,))
+        
+        # Commit dan tutup koneksi
+        conn.commit()
+        cursor.close()
+        conn.close()
+        print(f"Image name '{image_name}' saved to database.")
+
     def process_image(self, path):
         if os.path.exists(path):
             image = mpimg.imread(path)
+            plt.imshow(image)
+            plt.title("Processed Image")
+            plt.axis("off")
+            plt.show()
             
             # Konversi Image Ke Grayscale
             img_gray = cv2.cvtColor(image, cv2.COLOR_RGBA2GRAY)
@@ -259,7 +328,7 @@ class WebcamApp:
                         segmented_image = None
 
             self.label_dimensions.config(
-                text=f"Panjang daun: {panjang:.2f} cm\nPanjang : {PixelPanjang} px\nLebar daun: {lebar:.2f} cm\nLebar : {PixelLebar} px\nKualitas daun: {kualitas}\nBanyak Minyak :  {percentageOil:.2f}%\nKerusakan :  {percentageKerusakan:.2f}%\nWarna  :  {dominant_value}\nFrekwensi :  {dominant_frequency}"
+                text=f"Panjang daun: {panjang:.2f} cm\nPanjang : {PixelPanjang} px\nLebar daun: {lebar:.2f} cm\nLebar : {PixelLebar} px\nKualitas daun: {kualitas}\nBanyak Minyak :  {percentageOil:.2f}%\nKerusakan :  {percentageKerusakan:.2f}%\nWarna  :  {dominant_value}\nFrekwensizxx  :  {dominant_frequency}"
             )
         else:
             print("Path gambar tidak ditemukan.")
