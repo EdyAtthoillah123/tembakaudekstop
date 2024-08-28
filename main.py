@@ -122,10 +122,11 @@ class WebcamApp:
                 x, y, w, h = cv2.boundingRect(largest_contour)
                 
                 # Hitung dimensi
-                panjang = 0.0154 * w - 0.165
-                lebar = 0.0151 * h - 0.0715
-                PixelPanjang = w
-                PixelLebar = h
+                # panjang = 0.0935 * w - 8.0649
+                panjang = 0.1027 * w - 10.405
+                # lebar = 0.0151 * h - 0.0715
+                # PixelPanjang = w
+                # PixelLebar = h
 
                  # Tentukan kualitas daun
                 kualitas = self.determine_leaf_quality(panjang)
@@ -140,9 +141,9 @@ class WebcamApp:
                 
                 # Buat masker untuk citra yang dipotong
                 mask = np.zeros((h, w), dtype=np.uint8)
-                plt.imshow(mask)
-                plt.savefig('imageMask.png')  
-                plt.close()
+                # plt.imshow(mask)
+                # plt.savefig('imageMask.png')  
+                # plt.close()
                 
                 # Sesuaikan koordinat kontur ke citra yang dipotong
                 adjusted_contour = largest_contour - [x, y]
@@ -162,7 +163,7 @@ class WebcamApp:
                     cv2.imwrite('segmentedImageGray.png', segmented_image_gray)
 
                     # Tentukan rentang warna putih
-                    lower_white = np.array([130 ], dtype=np.uint8)
+                    lower_white = np.array([80 ], dtype=np.uint8)
                     upper_white = np.array([255], dtype=np.uint8)
                     # Buat mask untuk warna putih
                     white_mask = cv2.inRange(segmented_image_gray, lower_white, upper_white)
@@ -194,7 +195,7 @@ class WebcamApp:
                     
                     # Tentukan rentang warna putih
                     lower_black = np.array([1], dtype=np.uint8)
-                    upper_black = np.array([50], dtype=np.uint8)
+                    upper_black = np.array([40], dtype=np.uint8)
 
                     
                     # Buat mask untuk warna putih
@@ -239,10 +240,29 @@ class WebcamApp:
                     print(f'Jumlah piksel dalam rentang 1 hingga 255: {range_pixels}')
 
                     # Hitung persentase
+                    print("Banyak Minyak :",black_pixels)
                     percentageOil = (black_pixels / range_pixels) * 100
 
                     # Cetak hasil
                     print(f'Persentase piksel minyak di dalam daun: {percentageOil:.2f}%')
+
+                    # if percentageOil <= 7.5:
+                    #     oil_category = 'M2'
+                    # elif 7.5001 <= percentageOil <= 16.5:
+                    #     oil_category = 'M3'
+                    # elif percentageOil > 16.5001:
+                    #     oil_category = 'M4'
+                    # else:
+                    #     oil_category = 'Unknown' 
+
+                    if black_pixels <= 100:
+                        oil_category = 'M2'
+                    elif 100.001 <= black_pixels <= 1200:
+                        oil_category = 'M3'
+                    elif black_pixels > 1200.001:
+                        oil_category = 'M4'
+                    else:
+                        oil_category = 'Unknown' 
 
                     # Hitung persentase
                     percentageKerusakan = (white_pixels / range_pixels) * 100
@@ -258,8 +278,10 @@ class WebcamApp:
                         print("Tidak ada objek yang terdeteksi. Gambar mungkin terlalu gelap atau terang.")
                         segmented_image = None
 
+                        # Banyak Minyak :  {percentageOil:.2f}%\nMinyak Terdeteksi : {black_pixels}\nPanjang : {PixelPanjang} px\n
+
             self.label_dimensions.config(
-                text=f"Panjang daun: {panjang:.2f} cm\nPanjang : {PixelPanjang} px\nLebar daun: {lebar:.2f} cm\nLebar : {PixelLebar} px\nKualitas daun: {kualitas}\nBanyak Minyak :  {percentageOil:.2f}%\nKerusakan :  {percentageKerusakan:.2f}%\nWarna  :  {dominant_value}\nFrekwensi :  {dominant_frequency}"
+                text=f"Panjang daun: {panjang:.2f} cm\nKualitas daun: {kualitas}\nKategori Minyak = {oil_category}\nKerusakan :  {percentageKerusakan:.2f}%\nWarna  :  {dominant_value}\nFrekwensi :  {dominant_frequency}"
             )
         else:
             print("Path gambar tidak ditemukan.")
