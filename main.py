@@ -124,9 +124,6 @@ class WebcamApp:
                 # Hitung dimensi
                 # panjang = 0.0935 * w - 8.0649
                 panjang = 0.1027 * w - 10.405
-                # lebar = 0.0151 * h - 0.0715
-                # PixelPanjang = w
-                # PixelLebar = h
 
                  # Tentukan kualitas daun
                 kualitas = self.determine_leaf_quality(panjang)
@@ -135,15 +132,9 @@ class WebcamApp:
                 x, y, w, h = cv2.boundingRect(largest_contour)
 
                 cropped_image = image[y:y+h, x:x+w]
-                plt.imshow(cropped_image)
-                plt.savefig('imageCropped.png')  
-                plt.close()
                 
                 # Buat masker untuk citra yang dipotong
                 mask = np.zeros((h, w), dtype=np.uint8)
-                # plt.imshow(mask)
-                # plt.savefig('imageMask.png')  
-                # plt.close()
                 
                 # Sesuaikan koordinat kontur ke citra yang dipotong
                 adjusted_contour = largest_contour - [x, y]
@@ -153,14 +144,10 @@ class WebcamApp:
                 
                 # Segmentasikan objek dengan masker
                 segmented_image = cv2.bitwise_and(cropped_image, cropped_image, mask=mask)
-                plt.imshow(segmented_image)
-                plt.savefig('imageSegmented.png')  
-                plt.close()
 
                 # Konversi citra tersegmentasi ke grayscale jika perlu
                 if len(segmented_image.shape) == 3:
                     segmented_image_gray = cv2.cvtColor(segmented_image, cv2.COLOR_RGBA2GRAY)
-                    cv2.imwrite('segmentedImageGray.png', segmented_image_gray)
 
                     # Tentukan rentang warna putih
                     lower_white = np.array([80 ], dtype=np.uint8)
@@ -173,10 +160,8 @@ class WebcamApp:
 
                     # Ganti piksel putih dengan warna kuning
                     white_mask_bgr[np.where((white_mask_bgr == [255, 255, 255]).all(axis=2))] = [0, 0, 255]
-                    cv2.imwrite('whiteMaskBgr.png', white_mask_bgr)
 
                     white_pixels = cv2.countNonZero(white_mask)
-                    print(f'Jumlah piksel putih di dalam daun: {white_pixels}')
 
                     if (white_pixels > 250):
                         print("Kualitas daun Rusak")
@@ -189,10 +174,6 @@ class WebcamApp:
                     # Gabungkan gambar BGR dengan mask kuning
                     combined_image = cv2.addWeighted(segmented_image_bgr, 0.7, white_mask_bgr, 0.3, 0)
 
-                    # Simpan gambar hasil gabungan
-                    cv2.imwrite('combined_output.png', combined_image)
-
-                    
                     # Tentukan rentang warna putih
                     lower_black = np.array([1], dtype=np.uint8)
                     upper_black = np.array([40], dtype=np.uint8)
@@ -206,7 +187,6 @@ class WebcamApp:
 
                     # Ganti piksel putih dengan warna kuning
                     black_mask_bgr[np.where((black_mask_bgr == [255, 255, 255]).all(axis=2))] = [0, 0, 255]
-                    cv2.imwrite('blackMaskBgr.png', black_mask_bgr)
 
                     black_pixels = cv2.countNonZero(black_mask)
                     print(f'Jumlah piksel minyak di dalam daun: {black_pixels}')
@@ -221,9 +201,6 @@ class WebcamApp:
 
                     # Gabungkan gambar BGR dengan mask kuning
                     combined_imageblack = cv2.addWeighted(segmented_image_bgrblack, 0.7, black_mask_bgr, 0.3, 0)
-
-                    # Simpan gambar hasil gabungan
-                    cv2.imwrite('combined_output_oil.png', combined_imageblack)
 
                     # Hitung jumlah piksel untuk setiap nilai intensitas dari 0 hingga 255
                     pixel_counts = np.bincount(segmented_image_gray.flatten(), minlength=256)
@@ -245,15 +222,6 @@ class WebcamApp:
 
                     # Cetak hasil
                     print(f'Persentase piksel minyak di dalam daun: {percentageOil:.2f}%')
-
-                    # if percentageOil <= 7.5:
-                    #     oil_category = 'M2'
-                    # elif 7.5001 <= percentageOil <= 16.5:
-                    #     oil_category = 'M3'
-                    # elif percentageOil > 16.5001:
-                    #     oil_category = 'M4'
-                    # else:
-                    #     oil_category = 'Unknown' 
 
                     if black_pixels <= 100:
                         oil_category = 'M2'
