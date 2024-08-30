@@ -4,6 +4,20 @@ import cv2
 import os
 import numpy as np
 import matplotlib.image as mpimg
+import serial
+import os
+import cv2
+import numpy as np
+import matplotlib.image as mpimg
+import matplotlib.pyplot as plt
+import time
+
+# Setup komunikasi serial
+ser = serial.Serial('COM3', 9600)  # Ganti 'COM3' dengan port serial Arduino Anda
+
+# Inisialisasi variabel global di luar fungsi
+previous_oil_category = None
+start_time = time.time()
 
 class WebcamApp:
     def __init__(self, window):
@@ -65,7 +79,7 @@ class WebcamApp:
         self.update_frame()
 
         # Start automatic capture every 15 milliseconds
-        self.capture_interval = 170  # Set capture interval in milliseconds
+        self.capture_interval = 1000  # Set capture interval in milliseconds
         self.auto_capture()  # Start auto capture
 
     def update_frame(self):
@@ -105,19 +119,74 @@ class WebcamApp:
             print("No image to save!")
 
     # Method to process the image and calculate leaf quality
+
     def process_image(self, path):
         if os.path.exists(path):
+            # Membaca gambar dari path yang diberikan
             image = mpimg.imread(path)
 
-            # Konversi Image Ke Grayscale
+            if image is None:
+                print("Gambar tidak ditemukan di path:", path)
+                return
+
+            # Konversi gambar dari BGR ke HSV
+            hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+            # Tentukan ukuran area untuk ekstraksi nilai (50x50)
+            area_size = 100
+
+            # Tentukan posisi untuk mengambil area 50x50 (misalnya di pusat gambar)
+            height, width, _ = hsv_image.shape
+            start_x = (width // 2) - (area_size // 2)
+            start_y = (height // 2) - (area_size // 2)
+
+            # Ekstraksi area 50x50
+            hsv_area = hsv_image[start_y:start_y + area_size, start_x:start_x + area_size]
+
+            # Pisahkan channel Hue dan Saturation
+            hue_channel = hsv_area[:, :, 0]  # Channel Hue
+            saturation_channel = hsv_area[:, :, 1]  # Channel Saturation
+
+            # Hitung jumlah total data Hue dan Saturation dalam area 50x50
+            sum1 = np.sum(hue_channel)
+            sum2 = np.sum(saturation_channel)
+
+            # Menghitung rata-rata nilai Hue dan Saturation
+            average_hue = sum1 / (area_size * area_size)  # Karena area 50x50, jumlah total piksel adalah 2500
+            average_saturation = sum2 / (area_size * area_size)
+
+            # # Output jumlah total dan rata-rata Hue dan Saturation
+            # print(f"Jumlah total Hue (sum1): {sum1}")
+            # print(f"Jumlah total Saturation (sum2): {sum2}")
+            # print(f"Rata-rata Hue: {average_hue}")
+            # print(f"Rata-rata Saturation: {average_saturation}")
+
+            # # Menyimpan area 10x10 dan gambar HSV
+            cv2.imwrite("hsv_area_10x10.png", hsv_area)
+            # cv2.imwrite("hsv_image.png", hsv_image)
+
+            # print("Area 10x10 dan gambar HSV telah disimpan sebagai 'hsv_area_10x10.png' dan 'hsv_image.png'.")
+
+            # Konversi gambar ke Grayscale
             img_gray = cv2.cvtColor(image, cv2.COLOR_RGBA2GRAY)
 
-            # Hitung histogram dari gambar grayscale
-            histogram = cv2.calcHist([img_gray], [0], None, [256], [0, 256]).flatten()
+            # # Hitung histogram dari gambar grayscale
+            # histogram = cv2.calcHist([img_gray], [0], None, [256], [0, 256]).flatten()
 
-            # Temukan nilai piksel dominan
+            # # Temukan nilai piksel dominan
             # dominant_value = np.argmax(histogram)
-            # dominant_frequency = histogram[dominant_value]
+            # # dominant_frequency = histogram[dominant_value]
+
+            # if 200 <= dominant_value <= 205:
+            #     Object = "Daun Tembakau"
+            # elif 145 <= dominant_value <= 150:
+            #     Object = "Tidak ada Object"
+            # else:
+            #     Object = "Tembakau tidak terdeteksi"
+
+            # # Output hasil
+            # print(f"Dominant Pixel Value: {dominant_value}")
+            # print(f"Dominant Frequency: {dominant_frequency}")
 
             # Segmentasi Citra Menggunakan Thresholding
             _, thresh = cv2.threshold(img_gray, 128, 255, cv2.THRESH_BINARY_INV)
@@ -210,23 +279,63 @@ class WebcamApp:
                     # print(f'Persentase piksel minyak di dalam daun: {percentageOil:.2f}%')
                     # print(f'Persentase kerusakan di dalam daun: {percentageKerusakan:.2f}%')
 
-                    if black_pixels <= 105 :
-                        oil_category = 'M2'
-                    elif 105.001 <= black_pixels <= 1190:
-                        oil_category = 'M3'
-                    elif black_pixels > 1090.001:
-                        oil_category = 'M4'
+                    # Pastikan global variables sudah diinisialisasi di luar fungsi
+
+                    # Bagian di mana Anda menentukan kategori minyak
+                    global previous_oil_category, start_time
+                    
+                    # Tentukan kategori minyak
+                    if black_pixels == 0:
+                        oil_category = 0
+                    elif black_pixels <= 48:
+                        oil_category = 2
+                    elif 48.001 <= black_pixels <= 220:
+                        oil_category = 3
+                    elif black_pixels > 220.001:
+                        oil_category = 4
                     else:
-                        oil_category = 'Unknown'
+                        oil_category = 0
+
+
+                    # Tentukan kategori minyak
+                    # Tentukan kategori minyak
+                    if (average_hue <= 109 and (oil_category == 3 or oil_category == 4)):
+                        color_category = "MM"
+                    elif (average_hue <= 109 and oil_category == 2):
+                        color_category = "BB"
+                    elif (106.7001 <= average_hue <= 107.7000 and (oil_category == 2 or oil_category)):
+                        color_category = "B"
+                    elif (average_hue > 109.001 and (oil_category == 3 or oil_category == 4)):
+                        color_category = "M"
+                    else:
+                        color_category = "Tidak Terdefinisi"
+
+                    
+                    # Debug print statements
+                    print(f'Current oil_category: {oil_category}')
+                    print(f'Previous oil_category: {previous_oil_category}')
+
+                    # Jika kategori minyak tidak berubah
+                    if oil_category == previous_oil_category:
+                        # Jika sudah lebih dari 4 detik sejak terakhir kali berubah
+                        if time.time() - start_time >= 3:
+                            print("Sending blink signal to Arduino")  # Debug print
+                            ser.write(b'B')  # Kirim sinyal ke Arduino untuk blink LED
+                    else:
+                        # Reset waktu jika kategori minyak berubah
+                        previous_oil_category = oil_category
+                        start_time = time.time()  # Reset timer hanya saat nilai berubah
+                        print("Category changed, resetting timer") 
+                    PanjangDaun = max(panjang, 0)
 
                     # Cetak jumlah piksel untuk setiap nilai intensitas dari 1 hingga 255
                     # for intensity in range(1, 256):
-                    #     print(f'Jumlah piksel dengan intensitas {intensity}: {pixel_counts[intensity]}')
+                    #     print(f'Jumlah piksel dengan intensitas {intensity}: {pixel_counts[intensity]}') \nFrekwensi: {dominant_frequency}
 
                     # Update label dengan informasi yang dihitung
                     self.label_dimensions.config(
                         # \nWarna  :  {dominant_value}\nFrekwensi :  {dominant_frequency}\nKerusakan :  {percentageKerusakan:.2f}%
-                        text=f"Panjang daun: {panjang:.2f} cm\nKualitas daun: {kualitas}\nKategori Minyak = {oil_category}\nBanyak Pixel : {black_pixels}"
+                        text=f"Panjang daun: {PanjangDaun:.1f} cm\nKualitas daun: {kualitas}\nKategori Minyak = M{oil_category}\nBanyak Pixel : {black_pixels}\nWarna: {color_category}\nHue: {average_hue:.1f}\nSaturasi: {average_saturation:.1f}"
                     )
                 else:
                     print("Tidak ada objek yang terdeteksi. Gambar mungkin terlalu gelap atau terang.")
@@ -235,7 +344,9 @@ class WebcamApp:
 
             
     def determine_leaf_quality(self, panjang):
-        if panjang > 45:
+        if panjang < 5:
+            return "-"
+        elif panjang > 45:
             return "Super"
         elif 40 <= panjang <= 45:
             return "Lente 1"
