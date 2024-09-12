@@ -138,7 +138,7 @@ class WebcamApp:
             hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
             # Tentukan ukuran area untuk ekstraksi nilai (50x50)
-            area_size = 50
+            area_size = 200
 
             # Tentukan posisi untuk mengambil area 50x50 (misalnya di pusat gambar)
             height, width, _ = hsv_image.shape
@@ -206,7 +206,7 @@ class WebcamApp:
                     segmented_image_gray = cv2.cvtColor(segmented_image, cv2.COLOR_RGBA2GRAY)
 
                     # Tentukan rentang warna putih
-                    lower_white = np.array([180], dtype=np.uint8)
+                    lower_white = np.array([130], dtype=np.uint8)
                     upper_white = np.array([255], dtype=np.uint8)
                     
                     # Buat mask untuk warna putih
@@ -277,108 +277,44 @@ class WebcamApp:
 
                     # Tentukan kategori warna berdasarkan average_hue dan oil_category
                     
-                    if average_hue < 140 and 0 <= black_pixels <= 120:
+                    if average_hue < 140 and 0 <= black_pixels <= 130:
                         color_category = "BB"
-                    elif average_hue < 140 and 121 <= black_pixels <= 204:
+                    # elif 110 <= average_hue <= 111.6 and black_pixels >= 131:
+                    #     color_category = "B"
+                    elif average_hue < 140 and 131 <= black_pixels <= 204:
                         color_category = "MM"
-                    elif average_hue <= 109 and 205 <= black_pixels <= 600:
+
+                    # elif 108 < average_hue < 109 and 205 <= black_pixels <= 600:
+                    #     color_category = "M"
+                    elif average_hue <= 110 and 205 <= black_pixels <= 600:
                         color_category = "MM"
-                    elif average_hue > 109 and 205 <= black_pixels <= 600:
-                        color_category = "MM"
+                    elif average_hue > 110 and 205 <= black_pixels <= 600:
+                        color_category = "M"
+
                     elif average_hue <= 109 and 601 <= black_pixels <= 1300:
                         color_category = "MM"
-                    elif 109 < average_hue < 130.0 and 601 <= black_pixels <= 1300:
+                    elif average_hue > 109 and 601 <= black_pixels <= 1300:
                         color_category = "M"
-                    elif average_hue > 108 and 1301 <= black_pixels <= 2200:
-                        color_category = "MM"
-                    elif 107 < average_hue < 108 and 1301 <= black_pixels <= 1899:
-                        color_category = "MM"
-                    elif average_hue > 108.1 and 1301 <= black_pixels >= 1841:
-                        color_category = "M"
-                    elif average_hue >= 108.1 and black_pixels >= 1901:
-                        color_category = "M"
-                    elif 107 < average_hue >= 108 and black_pixels >= 1901:
-                        color_category = "MM"
-                    elif 107 < average_hue >= 108 and black_pixels >= 1902:
-                        color_category = "M"
-                    elif average_hue <= 106.9 and 1301 <= black_pixels:
+                    elif average_hue <= 107 and black_pixels >= 1301 :
                         color_category = "B"
+
+                    elif average_hue > 108.1 and 1301 <= black_pixels <= 1899:
+                        color_category = "M"
+                    elif 107 < average_hue >= 108 and black_pixels <= 1900:
+                        color_category = "MM"
+                    elif 107 < average_hue >= 108 and black_pixels > 1900:
+                        color_category = "M"
+                    elif average_hue > 107 and black_pixels >= 1901:
+                        color_category = "M"
                     else:
                         color_category = "Tidak Terdefinisi"
 
-
-                    # if average_hue < 112.0 and 0 <= black_pixels <= 122:
-                    #     color_category = "BB"
-                    # elif average_hue < 112.0 and 123 <= black_pixels <= 204:
-                    #     color_category = "MM"
-
-
-                    # elif average_hue < 108.9 and 205 <= black_pixels <= 800:
-                    #     color_category = "BB"
-                    # elif 109 < average_hue < 112.0 and 801 <= black_pixels <= 1300:
-                    #     color_category = "MM"
-
-
-
-                    # elif 107 < average_hue < 108 and 1301 <= black_pixels <= 1850:
-                    #     color_category = "MM"
-                    # elif average_hue >= 108.1 and black_pixels >= 1851:
-                    #     color_category = "M"
-                    # elif average_hue <= 106.9 and 1301 <= black_pixels >= 2200:
-                    #     color_category = "B"
-                    # else:
-                    #     color_category = "Tidak Terdefinisi"
-
-
-
-#                     elif average_hue < 108.6 and oil_category == 2:
-#                         color_category = "BB"
-#                     elif 106 <= average_hue <= 107 and (oil_category == 2 or oil_category == 3):
-#                         color_category = "B"
-#                     elif average_hue > 107.001 and (oil_category == 4 or oil_category == 3):
-#                         color_category = "M"
-
-
-
-                    # if average_hue < 108.6 and oil_category == 3:
-                    #     color_category = "MM"
-                    # elif average_hue < 108.6 and oil_category == 2:
-                    #     color_category = "BB"
-                    # elif 106 <= average_hue <= 107 and (oil_category == 2 or oil_category == 3):
-                    #     color_category = "B"
-                    # elif average_hue > 107.001 and (oil_category == 4 or oil_category == 3):
-                    #     color_category = "M"
-                    # else:
-                    #     color_category = "Tidak Terdefinisi"
-                    # if average_hue < 108.6 and oil_category == 3:
-                    #     color_category = "MM"
-                    # elif average_hue < 108.6 and oil_category == 2:
-                    #     color_category = "BB"
-                    # elif 106 <= average_hue <= 107 and (oil_category == 2 or oil_category == 3):
-                    #     color_category = "B"
-                    # elif average_hue > 107.001 and (oil_category == 4 or oil_category ==3):
-                    #     color_category = "M"
-                    # else:GB  
-                    #     color_category = "Tidak Terdefinisi"
-
                     print("Kategori warna:", color_category)
-
  
                     # Debug print statements
                     print(f'Current oil_category: {oil_category}')
                     print(f'Previous oil_category: {previous_oil_category}')
 
-                    # oil_category = get_oil_category()  # Fungsi ini perlu diisi sesuai kebutuhan
-                    # panjang = get_panjang_daun()  # Fungsi ini perlu diisi sesuai kebutuhan
-                    
-                    # Kontrol LED berkedip di Arduino berdasarkan kategori minyak
-                    # if oil_category == previous_oil_category:
-                    #     if time.time() - start_time >= 3:  # Jika kategori tidak berubah lebih dari 3 detik
-                    #         print("Sending blink signal to Arduino")  # Debug print
-                    #         ser.write(b'S')  # Kirim sinyal ke Arduino untuk blink LED
-                    # else:
-                    #     previous_oil_category = oil_category
-                                        #     start_time = time.time()  # Reset timer hanya saat nilai berubah
                     sent_signal = False  # Tambahkan flag untuk melacak pengiriman sinyal
 
                     if oil_category == previous_oil_category:
