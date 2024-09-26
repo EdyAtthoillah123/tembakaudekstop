@@ -7,16 +7,16 @@ import serial
 import time
 import matplotlib.image as mpimg
 
-# Setup komunikasi serial
-try:
-    ser = serial.Serial('COM3', 9600)  # Ganti 'COM3' dengan port serial Arduino Anda
-except serial.SerialException as e:
-    print(f"Error opening serial port: {e}")
-    ser = None
+# # Setup komunikasi serial
+# try:
+#     ser = serial.Serial('COM3', 9600)  # Ganti 'COM3' dengan port serial Arduino Anda
+# except serial.SerialException as e:
+#     print(f"Error opening serial port: {e}")
+#     ser = None
 
-# Inisialisasi variabel global di luar fungsi
-previous_oil_category = None
-start_time = time.time()
+# # Inisialisasi variabel global di luar fungsi
+# previous_oil_category = None
+# start_time = time.time()
 
 class WebcamApp:
     def __init__(self, window):
@@ -138,7 +138,7 @@ class WebcamApp:
             hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
             # Tentukan ukuran area untuk ekstraksi nilai (50x50)
-            area_size = 200
+            area_size = 175
 
             # Tentukan posisi untuk mengambil area 50x50 (misalnya di pusat gambar)
             height, width, _ = hsv_image.shape
@@ -148,24 +148,37 @@ class WebcamApp:
             # Ekstraksi area 50x50
             hsv_area = hsv_image[start_y:start_y + area_size, start_x:start_x + area_size]
 
-            # Pisahkan channel Hue dan Saturation
+            # Pisahkan channel Hue, Saturation, dan Value
             hue_channel = hsv_area[:, :, 0]  # Channel Hue
             saturation_channel = hsv_area[:, :, 1]  # Channel Saturation
+            value_channel = hsv_area[:, :, 2]  # Channel Value
 
-            # Hitung jumlah total data Hue dan Saturation dalam area 50x50
-            sum1 = np.sum(hue_channel)
-            sum2 = np.sum(saturation_channel)
+            # Hitung jumlah total data Hue, Saturation, dan Value dalam area 50x50
+            sum_hue = np.sum(hue_channel)
+            sum_saturation = np.sum(saturation_channel)
+            sum_value = np.sum(value_channel)
 
-            # Menghitung rata-rata nilai Hue dan Saturation
-            average_hue = sum1 / (area_size * area_size)  # Karena area 50x50, jumlah total piksel adalah 2500
-            average_saturation = sum2 / (area_size * area_size)
+            # Menghitung rata-rata nilai Hue, Saturation, dan Value
+            average_hue = sum_hue / (area_size * area_size)  # Karena area 50x50, jumlah total piksel adalah 2500
+            average_saturation = sum_saturation / (area_size * area_size)
+            average_value = sum_value / (area_size * area_size)
 
-            # Menyimpan area 10x10 dan gambar HSV
-            cv2.imwrite("hsv_area_10x10.png", hsv_area)
+            # Menyimpan area 50x50 dan gambar HSV
+            cv2.imwrite("hsv_area_50x50.png", hsv_area)
 
             # Debug print statements
             print(f"Average Hue: {average_hue}")
             print(f"Average Saturation: {average_saturation}")
+            print(f"Average Value: {average_value}")
+
+            normalisasiHue = average_hue / 360
+            normalisasiSaturation = average_saturation / 255
+            normalisasiValue = average_value / 255
+            penyetaraanHue = normalisasiHue + 0.01 * ((0.75 - normalisasiValue) / normalisasiValue)
+            penyetaraanSaturation = normalisasiSaturation * (0.75 * normalisasiValue)
+
+            print(f"Penyetaraan Hue: {penyetaraanHue:.3f}")
+            print(f"Penyetaraan Saturation: {penyetaraanSaturation:.3f}")
 
                  # Konversi gambar ke Grayscale
             img_gray = cv2.cvtColor(image, cv2.COLOR_RGBA2GRAY)
@@ -181,7 +194,7 @@ class WebcamApp:
                 x, y, w, h = cv2.boundingRect(largest_contour)
 
                 # Hitung dimensi
-                panjang = 0.1027 * w - 10.405
+                panjang = 0.1101 * w - 6.882
 
                 # Tentukan kualitas daun
                 kualitas = self.determine_leaf_quality(panjang)
@@ -221,10 +234,10 @@ class WebcamApp:
                     white_pixels = cv2.countNonZero(white_mask)
                     print(f'Jumlah piksel putih di dalam daun: {white_pixels}')
 
-                    if (white_pixels > 250):
-                        print("Kualitas daun Rusak")
+                    if (white_pixels < 20):
+                        Kerusakan = "Utuh"
                     else:
-                        print("Kualitas daun Bagus")
+                        Kerusakan = "Rambing"
 
                     # Ubah gambar grayscale menjadi BGR
                     segmented_image_bgr = cv2.cvtColor(segmented_image_gray, cv2.COLOR_GRAY2BGR)
@@ -243,6 +256,22 @@ class WebcamApp:
                     black_mask = cv2.inRange(segmented_image_gray, lower_black, upper_black)
                     black_pixels = cv2.countNonZero(black_mask)
 
+                    # Tentukan nilai smoothing factor alpha (nilai antara 0 dan 1, lebih kecil = lebih halus)
+                    alpha = 0.1
+
+                    # Variabel untuk menyimpan nilai black_pixels yang telah dinormalisasi
+                    smoothed_black_pixels = 0
+
+                    # Hitung jumlah piksel hitam
+                    black_pixels = cv2.countNonZero(black_mask)
+
+                    # Terapkan exponential smoothing
+                    smoothed_black_pixels = alpha * black_pixels + (1 - alpha) * smoothed_black_pixels
+                    # Membulatkan nilai smoothed_black_pixels ke bilangan bulat
+                    smoothed_blackpixels = int(round(smoothed_black_pixels))
+                    print(f"Smoothed black pixels: {smoothed_blackpixels}")
+
+
                     # Ganti piksel hitam dengan warna kuning pada gambar BGR
                     black_mask_bgr = cv2.cvtColor(black_mask, cv2.COLOR_GRAY2BGR)
                     black_mask_bgr[np.where((black_mask_bgr == [255, 255, 255]).all(axis=2))] = [0, 0, 255]
@@ -260,82 +289,203 @@ class WebcamApp:
                     range_mask = cv2.inRange(segmented_image_gray, lower_range, upper_range)
                     range_pixels = cv2.countNonZero(range_mask)
 
-                    # Bagian di mana Anda menentukan kategori minyak
-                    global previous_oil_category, start_time
+                    # # Bagian di mana Anda menentukan kategori minyak
+                    # global previous_oil_category, start_time
                     
                     # Tentukan kategori minyak 
+
+                    # normalisasiBlackpixel = black_pixels / 20
+
+                    # if normalisasiBlackpixel == 0:
+                    #     oil_category = 0
+                    # elif normalisasiBlackpixel <= 20:
+                    #     oil_category = 2
+                    # elif 20 < normalisasiBlackpixel <= 130:
+                    #     oil_category = 3
+                    # elif normalisasiBlackpixel > 130:
+                    #     oil_category = 4
+                    # else:
+                    #     oil_category = 0
+
+
                     if black_pixels == 0:
                         oil_category = 0
-                    elif black_pixels <= 204:
+                    elif black_pixels <= 254:
                         oil_category = 2
-                    elif 205 <= black_pixels <= 1300:
+                    elif 205 <= black_pixels <= 1320:
                         oil_category = 3
-                    elif black_pixels > 1301:
+                    elif black_pixels > 1500:
                         oil_category = 4
                     else:
                         oil_category = 0
 
-                    # Tentukan kategori warna berdasarkan average_hue dan oil_category
-                    
-                    if average_hue < 140 and 0 <= black_pixels <= 130:
-                        color_category = "BB"
-                    # elif 110 <= average_hue <= 111.6 and black_pixels >= 131:
-                    #     color_category = "B"
-                    elif average_hue < 140 and 131 <= black_pixels <= 204:
-                        color_category = "MM"
-
-                    # elif 108 < average_hue < 109 and 205 <= black_pixels <= 600:
-                    #     color_category = "M"
-                    elif average_hue <= 110 and 205 <= black_pixels <= 600:
-                        color_category = "MM"
-                    elif average_hue > 110 and 205 <= black_pixels <= 600:
-                        color_category = "M"
-
-                    elif average_hue <= 109 and 601 <= black_pixels <= 1300:
-                        color_category = "MM"
-                    elif average_hue > 109 and 601 <= black_pixels <= 1300:
-                        color_category = "M"
-                    elif average_hue <= 107 and black_pixels >= 1301 :
-                        color_category = "B"
-
-                    elif average_hue > 108.1 and 1301 <= black_pixels <= 1899:
-                        color_category = "M"
-                    elif 107 < average_hue >= 108 and black_pixels <= 1900:
-                        color_category = "MM"
-                    elif 107 < average_hue >= 108 and black_pixels > 1900:
-                        color_category = "M"
-                    elif average_hue > 107 and black_pixels >= 1901:
+                    # Tentukan kategori warna berdasarkan average_hue dan average_value
+                    if average_hue <= 106.2:
+                        if average_value <= 119:
+                            color_category = "BB"
+                        else:
+                            color_category = "MM"
+                    elif 106.2 < average_hue <= 107.2:
+                        if average_value <= 106:
+                            color_category = "B"
+                        elif 106 < average_value <= 112:
+                            color_category = "BB"
+                        else:  
+                            color_category = "MM"
+                    elif 107.2 < average_hue <= 108.2:
+                        if average_value <= 106:
+                            color_category = "B"
+                        elif 106 < average_value <= 121:
+                            color_category = "MM"
+                        else:  # average_value > 122
+                            color_category = "M"
+                    elif average_hue > 108.2:
                         color_category = "M"
                     else:
                         color_category = "Tidak Terdefinisi"
 
-                    print("Kategori warna:", color_category)
+
+
+                    # # Tentukan kategori warna berdasarkan average_hue dan oil_category
+                    # if average_hue <= 106.2:
+                    #     color_category = "BB"
+                    # elif 106.2 < average_hue <= 107.2 and average_value > 106:
+                    #     color_category = "BB"
+                    # elif 106.2 < average_hue <= 107.2 and average_value <= 106:
+                    #     color_category = "B"
+                    # elif 107.2 < average_hue <= 108.2 and average_value <= 106:
+                    #     color_category = "B"
+                    # elif 107.2 < average_hue <= 108.2 and 106 < average_value <= 122:
+                    #     color_category = "MM"
+                    # elif 107.2 < average_hue <= 108.2 and average_value > 122:
+                    #     color_category = "M"
+                    # elif average_hue > 108.2:
+                    #     color_category = "M"
+                    # else:
+                    #     color_category = "Tidak Terdefinisi"
+
+
+
+                    # if average_hue <= 107 and black_pixels <= 130:
+                    #     color_category = "BB"
+                    # elif average_hue > 107 and black_pixels <= 130:
+                    #     color_category = "MM"
+                    # #     elif 110 <= average_hue <= 111.6 and black_pixels >= 131:
+                    # #     color_category = "B"
+
+                    # elif average_hue < 140 and 131 <= black_pixels <= 204:
+                    #     color_category = "MM"
+
+                    # #     color_category = "M"
+                    # elif average_hue < 130 and 205 <= black_pixels <= 600:
+                    #     color_category = "MM"
+                    # # elif average_hue >= 108 and 205 <= black_pixels <= 600:
+                    # #     color_category = "M"
+
+                    # elif average_hue < 108 and 601 <= black_pixels <= 1300:
+                    #     color_category = "MM"
+                    # elif average_hue >= 108 and 601 <= black_pixels <= 1300:
+                    #     color_category = "M"
+
+                    # elif average_hue <= 107 and black_pixels >= 1301 :
+                    #     color_category = "B"
+
+                    # elif average_hue > 108.1 and 1301 <= black_pixels <= 1899:
+                    #     color_category = "M"
+                    # elif 107 < average_hue >= 108 and black_pixels <= 1900:
+                    #     color_category = "MM"
+                    # elif 107 < average_hue >= 108 and black_pixels > 1900:
+                    #     color_category = "M"
+                    # elif average_hue > 107 and black_pixels >= 1901:
+                    #     color_category = "M"
+                    # else:
+                    #     color_category = "Tidak Terdefinisi"
+
+                    # print("Kategori warna:", color_category)
  
-                    # Debug print statements
-                    print(f'Current oil_category: {oil_category}')
-                    print(f'Previous oil_category: {previous_oil_category}')
+                    # # Debug print statements
+                    # print(f'Current oil_category: {oil_category}')
+                    # print(f'Previous oil_category: {previous_oil_category}')
+
+                    # Penentuan kategori warna berdasarkan rentang penyetaraanHue
+                    # if black_pixels == 0:
+                    #     kategoriWarna = "-"
+                    # elif black_pixels < 80:
+                    #     kategoriWarna = "BB"
+                    # elif penyetaraanHue <= 0.3 and 80 <= black_pixels <= 120:ssssssss
+                    #     kategoriWarna = 'BB'
+                    # elif penyetaraanHue > 0.3 and 80 <= black_pixels <= 120:
+                    #     kategoriWarna = 'MM'
+                    # elif  penyetaraanHue <= 0.305  and 120 <= black_pixels < 1800 :
+                    #     kategoriWarna = 'MM'
+                    # elif penyetaraanHue > 0.305  and 120 <= black_pixels < 1800 :
+                    #     kategoriWarna = 'M'
+                    # else:
+                    #     kategoriWarna = 'M'
+
+                    # print(f"Kategori Warna: {kategoriWarna}")
+
+
+
+                    # if black_pixels == 0:
+                    #     kategoriWarna = "-"
+                    # elif black_pixels < 80:
+                    #     kategoriWarna = "BB"
+                    # elif penyetaraanHue <= 0.3 and 80 <= black_pixels <= 120:
+                    #     kategoriWarna = 'BB'
+                    # elif penyetaraanHue > 0.3 and 80 <= black_pixels <= 120:
+                    #     kategoriWarna = 'MM'
+                    # elif  penyetaraanHue <= 0.307  and 120 <= black_pixels <= 800 :
+                    #     kategoriWarna = 'MM'
+                    # elif penyetaraanHue > 0.307  and 120 <= black_pixels <= 800 :
+                    #     kategoriWarna = 'M'
+
+                    # elif  penyetaraanHue <= 0.305  and 800 <= black_pixels <= 1350 :
+                    #     kategoriWarna = 'MM'
+
+                    
+                    # elif 0.305 <= penyetaraanHue <= 0.318  and 800 <= black_pixels <= 1350 :
+                    #     kategoriWarna = 'M'
+                    
+                    # elif penyetaraanHue <= 0.318  and black_pixels > 1350 :
+                    #     kategoriWarna = 'B'
+                    # else:
+                    #     kategoriWarna = 'M'
+
+                    # print(f"Kategori Warna: {kategoriWarna}")
+
 
                     sent_signal = False  # Tambahkan flag untuk melacak pengiriman sinyal
 
-                    if oil_category == previous_oil_category:
-                        if time.time() - start_time >= 3 and not sent_signal:  # Jika kategori tidak berubah lebih dari 3 detik dan belum dikirim
-                            print("Sending blink signal to Arduino")  # Debug print
-                            ser.write(f'S:{kualitas} | M{oil_category} | {color_category}\n'.encode())  # Kirim sinyal 'S' dan kualitas daun ke Arduino
-                            sent_signal = True  # Set flag menjadi True setelah pengiriman
-                    else:
-                        previous_oil_category = oil_category
-                        start_time = time.time()  # Reset timer hanya saat nilai berubah
-                        sent_signal = False  # Reset flag jika kategori berubah
-                        print("Category changed, resetting timer")
+                    # if oil_category == previous_oil_category:
+                    #     if time.time() - start_time >= 3 and not sent_signal:  # Jika kategori tidak berubah lebih dari 3 detik dan belum dikirim
+                    #         print("Sending blink signal to Arduino")  # Debug print
+                    #         ser.write(f'S:{kualitas} | M{oil_category} | {color_category}\n'.encode())  # Kirim sinyal 'S' dan kualitas daun ke Arduino
+                    #         sent_signal = True  # Set flag menjadi True setelah pengiriman
+                    # else:
+                    #     previous_oil_category = oil_category
+                    #     start_time = time.time()  # Reset timer hanya saat nilai berubah
+                    #     sent_signal = False  # Reset flag jika kategori berubah
+                    #     print("Category changed, resetting timer")
 
 
                     PanjangDaun = max(panjang, 0)
+                    # self.label_dimensions.config(
+                    #     # \nWarna  :  {dominant_value}\nFrekwensi :  {dominant_frequency}\nKerusakan :  {percentageKerusakan:.2f}%
+                    #     text=f"Kualitas daun: {kualitas}\nKategori Minyak = M{oil_category}\nBanyak Pixel : {black_pixels}\nKategoriWarna : {kategoriWarna}"
+                    # )
+                    print("Daun :", Kerusakan)
+                    # self.label_dimensions.config(
+                    #     # \nWarna  :  {dominant_value}\nFrekwensi :  {dominant_frequency}\nKerusakan :  {percentageKerusakan:.2f}%
+                    #     text=f"Panjang daun: {PanjangDaun:.1f} cm\nPanjang Px: {w}\nKualitas daun: {kualitas}\nKategori Minyak = M{oil_category}\nBanyak Pixel : {black_pixels}\nHue: {average_hue:.1f}\nSaturasi: {average_saturation:.1f}\nValue: {average_value:.1f}\nPH: {penyetaraanHue:3f}\nPS: {penyetaraanSaturation:.3f}\nKategoriWarna : {kategoriWarna}\nKerusakan : {Kerusakan}"
+                    # )
                     self.label_dimensions.config(
-                        # \nWarna  :  {dominant_value}\nFrekwensi :  {dominant_frequency}\nKerusakan :  {percentageKerusakan:.2f}%
-                        text=f"Panjang daun: {PanjangDaun:.1f} cm\nKualitas daun: {kualitas}\nKategori Minyak = M{oil_category}\nBanyak Pixel : {black_pixels}\nWarna: {color_category}\nHue: {average_hue:.1f}\nSaturasi: {average_saturation:.1f}"
+                        # \nWarna  :  {dominant_value}\nFrekwensi :  {domi`nant_frequency}\nKerusakan :  {percentageKerusakan:.2f}%
+                        text=f"Grade:\n {kualitas} | {color_category}"
+
                     )
               
-                else:
+                else: 
                     print("Segmented Not Found")
             else:
                 print("Contour Not Found")
@@ -343,18 +493,25 @@ class WebcamApp:
             print("Image path not found.")
 
     def determine_leaf_quality(self, panjang):
+        print(f"Panjang daun: {panjang}")
         if panjang < 5:
             return "-"
         elif panjang > 45:
+            print("Masuk kategori Super")
             return "Super"
-        elif 40 <= panjang <= 45:
+        elif 40.3 <= panjang <= 45:
+            print("Masuk kategori Lente 1")
             return "Lente 1"
-        elif 35 <= panjang < 40:
+        elif 35.5 <= panjang < 40.3:
+            print("Masuk kategori Lente 2")
             return "Lente 2"
-        elif 30 <= panjang < 35:
+        elif 30 <= panjang < 35.5:
+            print("Masuk kategori Lente 3")
             return "Lente 3"
         else:
+            print("Masuk kategori Filler")
             return "Filler"
+
 
 root = tk.Tk()
 app = WebcamApp(root)
