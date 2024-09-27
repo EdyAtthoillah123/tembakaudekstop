@@ -321,10 +321,7 @@ class WebcamApp:
 
                     # Tentukan kategori warna berdasarkan average_hue dan average_value
                     if average_hue <= 106.2:
-                        if average_value <= 119:
-                            color_category = "BB"
-                        else:
-                            color_category = "MM"
+                        color_category = "BB"
                     elif 106.2 < average_hue <= 107.2:
                         if average_value <= 106:
                             color_category = "B"
@@ -332,14 +329,14 @@ class WebcamApp:
                             color_category = "BB"
                         else:  
                             color_category = "MM"
-                    elif 107.2 < average_hue <= 108.2:
+                    elif 107.2 < average_hue <= 108:
                         if average_value <= 106:
                             color_category = "B"
                         elif 106 < average_value <= 121:
                             color_category = "MM"
                         else:  # average_value > 122
                             color_category = "M"
-                    elif average_hue > 108.2:
+                    elif average_hue > 108:
                         color_category = "M"
                     else:
                         color_category = "Tidak Terdefinisi"
@@ -481,7 +478,7 @@ class WebcamApp:
                     # )
                     self.label_dimensions.config(
                         # \nWarna  :  {dominant_value}\nFrekwensi :  {domi`nant_frequency}\nKerusakan :  {percentageKerusakan:.2f}%
-                        text=f"Grade:\n {kualitas} | {color_category}"
+                        text=f"Grade:\n {kualitas} | {color_category}\nHue: {average_hue:.1f}\nSaturasi: {average_saturation:.1f}\nValue: {average_value:.1f}"
 
                     )
               
