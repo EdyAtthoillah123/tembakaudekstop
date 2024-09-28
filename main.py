@@ -214,7 +214,6 @@ class WebcamApp:
                 # Segmentasikan objek dengan masker
                 segmented_image = cv2.bitwise_and(cropped_image, cropped_image, mask=mask)
 
-                # Konversi citra tersegmentasi ke grayscale jika perlu
                 if len(segmented_image.shape) == 3:
                     segmented_image_gray = cv2.cvtColor(segmented_image, cv2.COLOR_RGBA2GRAY)
 
@@ -226,23 +225,68 @@ class WebcamApp:
                     white_mask = cv2.inRange(segmented_image_gray, lower_white, upper_white)
                     white_pixels = cv2.countNonZero(white_mask)
 
+                    # Cari kontur di white_mask
+                    contours, _ = cv2.findContours(white_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
                     # Ganti piksel putih dengan warna kuning pada gambar BGR
                     white_mask_bgr = cv2.cvtColor(white_mask, cv2.COLOR_GRAY2BGR)
                     white_mask_bgr[np.where((white_mask_bgr == [255, 255, 255]).all(axis=2))] = [0, 0, 255]
+
+                    # Inisialisasi jumlah bounding box
+                    jumlah_bounding_box = 0
+
+                        # Gambar bounding box di sekitar kontur (lubang) dan hitung ukuran dalam cm
+                    for contour in contours:
+                        x, y, w, h = cv2.boundingRect(contour)
+
+                        # Hitung ukuran dalam cm (dengan asumsi 1 pixel = 1 cm)
+                        lebar_cm = w * 0.075  # Lebar bounding box dalam cm
+                        tinggi_cm = h * 0.081 # Tinggi bounding box dalam cm
+
+                        # Cek jika lebar atau tinggi lebih dari threshold (misal 0.5 cm)
+                        if lebar_cm > 0.2 and tinggi_cm > 0.2:
+                            # Gambar bounding box jika ukuran lebih dari 0.5 cm
+                            cv2.rectangle(white_mask_bgr, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+                            # Tampilkan ukuran bounding box di atas dan samping bounding box
+                            font = cv2.FONT_HERSHEY_SIMPLEX
+                            font_scale = 0.5
+                            font_color = (255, 255, 255)  # Warna putih
+                            thickness = 1
+
+                            # Tampilkan lebar di atas bounding box
+                            text_lebar = f'Lebar: {lebar_cm:.2f} cm'
+                            cv2.putText(white_mask_bgr, text_lebar, (x, y - 10), font, font_scale, font_color, thickness)
+
+                            # Tampilkan tinggi di samping bounding box
+                            text_tinggi = f'Tinggi: {tinggi_cm:.2f} cm'
+                            cv2.putText(white_mask_bgr, text_tinggi, (x + w + 10, y + h // 2), font, font_scale, font_color, thickness)
+
+                            print(f'Bounding Box {jumlah_bounding_box + 1}: Lebar = {lebar_cm:.2f} cm, Tinggi = {tinggi_cm:.2f} cm')
+
+                            # Tambahkan jumlah bounding box
+                            jumlah_bounding_box += 1
+                        else:
+                            print(f'Kontur diabaikan: Lebar = {lebar_cm:.2f} cm, Tinggi = {tinggi_cm:.2f} cm (di bawah threshold 0.5 cm)')
+
+                    # Simpan hasil gambar dengan bounding box
                     cv2.imwrite('whiteMaskBgr.png', white_mask_bgr)
-                    cv2.imwrite('whiteMaskBgr.png', white_mask_bgr)
+
+                    # Hitung total piksel putih
                     white_pixels = cv2.countNonZero(white_mask)
                     print(f'Jumlah piksel putih di dalam daun: {white_pixels}')
+                    print(f'Jumlah bounding box (lubang): {jumlah_bounding_box}')
 
-                    if (white_pixels < 20):
-                        Kerusakan = "Utuh"
-                    else:
+
+                    if jumlah_bounding_box >= 1:
                         Kerusakan = "Rambing"
+                    else:
+                        Kerusakan = "Utuh"
 
                     # Ubah gambar grayscale menjadi BGR
                     segmented_image_bgr = cv2.cvtColor(segmented_image_gray, cv2.COLOR_GRAY2BGR)
 
-                    # Gabungkan gambar BGR dengan mask kuning
+                    # Gabungkan gambar BGR dengan mask kuning dan bounding box hijau
                     combined_image = cv2.addWeighted(segmented_image_bgr, 0.7, white_mask_bgr, 0.3, 0)
 
                     # Simpan gambar hasil gabungan
@@ -289,25 +333,6 @@ class WebcamApp:
                     range_mask = cv2.inRange(segmented_image_gray, lower_range, upper_range)
                     range_pixels = cv2.countNonZero(range_mask)
 
-                    # # Bagian di mana Anda menentukan kategori minyak
-                    # global previous_oil_category, start_time
-                    
-                    # Tentukan kategori minyak 
-
-                    # normalisasiBlackpixel = black_pixels / 20
-
-                    # if normalisasiBlackpixel == 0:
-                    #     oil_category = 0
-                    # elif normalisasiBlackpixel <= 20:
-                    #     oil_category = 2
-                    # elif 20 < normalisasiBlackpixel <= 130:
-                    #     oil_category = 3
-                    # elif normalisasiBlackpixel > 130:
-                    #     oil_category = 4
-                    # else:
-                    #     oil_category = 0
-
-
                     if black_pixels == 0:
                         oil_category = 0
                     elif black_pixels <= 254:
@@ -319,15 +344,34 @@ class WebcamApp:
                     else:
                         oil_category = 0
 
-                    # Tentukan kategori warna berdasarkan average_hue dan average_value
+                    # # Tentukan kategori warna berdasarkan average_hue dan average_value
+                    # if average_hue <= 106.2:
+                    #     color_category = "BB"
+                    # elif 106.2 < average_hue <= 107.2:
+                    #     if average_value <= 106:
+                    #         color_category = "B"
+                    #     elif 106 < average_value <= 112:
+                    #         color_category = "BB"
+                    #     else:  
+                    #         color_category = "MM"
+                    # elif 107.2 < average_hue <= 108:
+                    #     if average_value <= 106:
+                    #         color_category = "B"
+                    #     elif 106 < average_value <= 121:
+                    #         color_category = "MM"
+                    #     else:  # average_value > 122
+                    #         color_category = "M"
+                    # elif average_hue > 108:
+                    #     color_category = "M"
+                    # else:
+                    #     color_category = "Tidak Terdefinisi"
+
                     if average_hue <= 106.2:
                         color_category = "BB"
                     elif 106.2 < average_hue <= 107.2:
                         if average_value <= 106:
                             color_category = "B"
-                        elif 106 < average_value <= 112:
-                            color_category = "BB"
-                        else:  
+                        else:
                             color_category = "MM"
                     elif 107.2 < average_hue <= 108:
                         if average_value <= 106:
@@ -340,117 +384,6 @@ class WebcamApp:
                         color_category = "M"
                     else:
                         color_category = "Tidak Terdefinisi"
-
-
-
-                    # # Tentukan kategori warna berdasarkan average_hue dan oil_category
-                    # if average_hue <= 106.2:
-                    #     color_category = "BB"
-                    # elif 106.2 < average_hue <= 107.2 and average_value > 106:
-                    #     color_category = "BB"
-                    # elif 106.2 < average_hue <= 107.2 and average_value <= 106:
-                    #     color_category = "B"
-                    # elif 107.2 < average_hue <= 108.2 and average_value <= 106:
-                    #     color_category = "B"
-                    # elif 107.2 < average_hue <= 108.2 and 106 < average_value <= 122:
-                    #     color_category = "MM"
-                    # elif 107.2 < average_hue <= 108.2 and average_value > 122:
-                    #     color_category = "M"
-                    # elif average_hue > 108.2:
-                    #     color_category = "M"
-                    # else:
-                    #     color_category = "Tidak Terdefinisi"
-
-
-
-                    # if average_hue <= 107 and black_pixels <= 130:
-                    #     color_category = "BB"
-                    # elif average_hue > 107 and black_pixels <= 130:
-                    #     color_category = "MM"
-                    # #     elif 110 <= average_hue <= 111.6 and black_pixels >= 131:
-                    # #     color_category = "B"
-
-                    # elif average_hue < 140 and 131 <= black_pixels <= 204:
-                    #     color_category = "MM"
-
-                    # #     color_category = "M"
-                    # elif average_hue < 130 and 205 <= black_pixels <= 600:
-                    #     color_category = "MM"
-                    # # elif average_hue >= 108 and 205 <= black_pixels <= 600:
-                    # #     color_category = "M"
-
-                    # elif average_hue < 108 and 601 <= black_pixels <= 1300:
-                    #     color_category = "MM"
-                    # elif average_hue >= 108 and 601 <= black_pixels <= 1300:
-                    #     color_category = "M"
-
-                    # elif average_hue <= 107 and black_pixels >= 1301 :
-                    #     color_category = "B"
-
-                    # elif average_hue > 108.1 and 1301 <= black_pixels <= 1899:
-                    #     color_category = "M"
-                    # elif 107 < average_hue >= 108 and black_pixels <= 1900:
-                    #     color_category = "MM"
-                    # elif 107 < average_hue >= 108 and black_pixels > 1900:
-                    #     color_category = "M"
-                    # elif average_hue > 107 and black_pixels >= 1901:
-                    #     color_category = "M"
-                    # else:
-                    #     color_category = "Tidak Terdefinisi"
-
-                    # print("Kategori warna:", color_category)
- 
-                    # # Debug print statements
-                    # print(f'Current oil_category: {oil_category}')
-                    # print(f'Previous oil_category: {previous_oil_category}')
-
-                    # Penentuan kategori warna berdasarkan rentang penyetaraanHue
-                    # if black_pixels == 0:
-                    #     kategoriWarna = "-"
-                    # elif black_pixels < 80:
-                    #     kategoriWarna = "BB"
-                    # elif penyetaraanHue <= 0.3 and 80 <= black_pixels <= 120:ssssssss
-                    #     kategoriWarna = 'BB'
-                    # elif penyetaraanHue > 0.3 and 80 <= black_pixels <= 120:
-                    #     kategoriWarna = 'MM'
-                    # elif  penyetaraanHue <= 0.305  and 120 <= black_pixels < 1800 :
-                    #     kategoriWarna = 'MM'
-                    # elif penyetaraanHue > 0.305  and 120 <= black_pixels < 1800 :
-                    #     kategoriWarna = 'M'
-                    # else:
-                    #     kategoriWarna = 'M'
-
-                    # print(f"Kategori Warna: {kategoriWarna}")
-
-
-
-                    # if black_pixels == 0:
-                    #     kategoriWarna = "-"
-                    # elif black_pixels < 80:
-                    #     kategoriWarna = "BB"
-                    # elif penyetaraanHue <= 0.3 and 80 <= black_pixels <= 120:
-                    #     kategoriWarna = 'BB'
-                    # elif penyetaraanHue > 0.3 and 80 <= black_pixels <= 120:
-                    #     kategoriWarna = 'MM'
-                    # elif  penyetaraanHue <= 0.307  and 120 <= black_pixels <= 800 :
-                    #     kategoriWarna = 'MM'
-                    # elif penyetaraanHue > 0.307  and 120 <= black_pixels <= 800 :
-                    #     kategoriWarna = 'M'
-
-                    # elif  penyetaraanHue <= 0.305  and 800 <= black_pixels <= 1350 :
-                    #     kategoriWarna = 'MM'
-
-                    
-                    # elif 0.305 <= penyetaraanHue <= 0.318  and 800 <= black_pixels <= 1350 :
-                    #     kategoriWarna = 'M'
-                    
-                    # elif penyetaraanHue <= 0.318  and black_pixels > 1350 :
-                    #     kategoriWarna = 'B'
-                    # else:
-                    #     kategoriWarna = 'M'
-
-                    # print(f"Kategori Warna: {kategoriWarna}")
-
 
                     sent_signal = False  # Tambahkan flag untuk melacak pengiriman sinyal
 
@@ -467,18 +400,10 @@ class WebcamApp:
 
 
                     PanjangDaun = max(panjang, 0)
-                    # self.label_dimensions.config(
-                    #     # \nWarna  :  {dominant_value}\nFrekwensi :  {dominant_frequency}\nKerusakan :  {percentageKerusakan:.2f}%
-                    #     text=f"Kualitas daun: {kualitas}\nKategori Minyak = M{oil_category}\nBanyak Pixel : {black_pixels}\nKategoriWarna : {kategoriWarna}"
-                    # )
-                    print("Daun :", Kerusakan)
-                    # self.label_dimensions.config(
-                    #     # \nWarna  :  {dominant_value}\nFrekwensi :  {dominant_frequency}\nKerusakan :  {percentageKerusakan:.2f}%
-                    #     text=f"Panjang daun: {PanjangDaun:.1f} cm\nPanjang Px: {w}\nKualitas daun: {kualitas}\nKategori Minyak = M{oil_category}\nBanyak Pixel : {black_pixels}\nHue: {average_hue:.1f}\nSaturasi: {average_saturation:.1f}\nValue: {average_value:.1f}\nPH: {penyetaraanHue:3f}\nPS: {penyetaraanSaturation:.3f}\nKategoriWarna : {kategoriWarna}\nKerusakan : {Kerusakan}"
-                    # )
+                    
                     self.label_dimensions.config(
                         # \nWarna  :  {dominant_value}\nFrekwensi :  {domi`nant_frequency}\nKerusakan :  {percentageKerusakan:.2f}%
-                        text=f"Grade:\n {kualitas} | {color_category}\nHue: {average_hue:.1f}\nSaturasi: {average_saturation:.1f}\nValue: {average_value:.1f}"
+                        text=f"Grade:\n {kualitas} | {color_category} | {Kerusakan}"
 
                     )
               
