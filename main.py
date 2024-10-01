@@ -3,19 +3,15 @@ from PIL import Image, ImageTk
 import cv2
 import os
 import numpy as np
+import time
+import tkinter as tk
+from PIL import Image, ImageTk
+import cv2
+import os
+import numpy as np
 import serial
 import time
-
-# Setup komunikasi serial
-try:
-    ser = serial.Serial('COM3', 9600)  # Ganti 'COM3' dengan port serial Arduino Anda
-except serial.SerialException as e:
-    print(f"Error opening serial port: {e}")
-    ser = None
-
-# Inisialisasi variabel global di luar fungsi
-previous_oil_category = None
-start_time = time.time()
+import matplotlib.image as mpimg
 
 class WebcamApp:
     def __init__(self, window):
@@ -107,21 +103,6 @@ class WebcamApp:
     def on_leave(self, e):
         e.widget['bg'] = '#e74c3c'
 
-    # def download_image(self):
-    #     if self.current_image is not None:
-    #         directory = os.path.expanduser("~/Documents/KlasifikasiTembakau")
-    #         if not os.path.exists(directory):
-    #             os.makedirs(directory)
-    #         file_path = os.path.join(directory, "captured_image.jpg")
-            
-    #         try:
-    #             self.current_image.save(file_path)
-    #             # Process the saved image
-    #             self.process_image(file_path)
-    #         except PermissionError:
-    #             print(f"Permission denied: Unable to save image to {file_path}. Please check folder permissions.")
-    #     else:
-    #         print("No image to save!")
     def download_image(self):
         if self.current_image is not None:
             directory = os.path.expanduser("~/Documents/KlasifikasiTembakau")
@@ -142,45 +123,11 @@ class WebcamApp:
     def process_image(self, path):
         if os.path.exists(path):
             # Membaca gambar dari path yang diberikan
-            image = cv2.imread(path)
+            image = mpimg.imread(path)
 
             if image is None:
                 print("Gambar tidak ditemukan di path:", path)
                 return
-
-            # Konversi gambar dari BGR ke HSV
-            hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-
-            # Tentukan ukuran area untuk ekstraksi nilai (50x50)
-            area_size = 50
-
-            # Tentukan posisi untuk mengambil area 50x50 (misalnya di pusat gambar)
-            height, width, _ = hsv_image.shape
-            start_x = (width // 2) - (area_size // 2)
-            start_y = (height // 2) - (area_size // 2)
-
-            # Ekstraksi area 50x50
-            hsv_area = hsv_image[start_y:start_y + area_size, start_x:start_x + area_size]
-
-            # Pisahkan channel Hue dan Saturation
-            hue_channel = hsv_area[:, :, 0]  # Channel Hue
-            saturation_channel = hsv_area[:, :, 1]  # Channel Saturation
-
-            # Hitung jumlah total data Hue dan Saturation dalam area 50x50
-            sum1 = np.sum(hue_channel)
-            sum2 = np.sum(saturation_channel)
-
-            # Menghitung rata-rata nilai Hue dan Saturation
-            average_hue = sum1 / (area_size * area_size)  # Karena area 50x50, jumlah total piksel adalah 2500
-            average_saturation = sum2 / (area_size * area_size)
-
-            # Menyimpan area 10x10 dan gambar HSV
-            cv2.imwrite("hsv_area_10x10.png", hsv_area)
-
-            # Debug print statements
-            print(f"Average Hue: {average_hue}")
-            print(f"Average Saturation: {average_saturation}")
-
                  # Konversi gambar ke Grayscale
             img_gray = cv2.cvtColor(image, cv2.COLOR_RGBA2GRAY)
 
@@ -193,12 +140,6 @@ class WebcamApp:
             if contours:
                 largest_contour = max(contours, key=cv2.contourArea)
                 x, y, w, h = cv2.boundingRect(largest_contour)
-
-                # Hitung dimensi
-                panjang = 0.1027 * w - 10.405
-
-                # Tentukan kualitas daun
-                kualitas = self.determine_leaf_quality(panjang)
 
                 # Deteksi kerusakan dan minyak 
                 cropped_image = image[y:y+h, x:x+w]
@@ -214,100 +155,106 @@ class WebcamApp:
 
                 # Segmentasikan objek dengan masker
                 segmented_image = cv2.bitwise_and(cropped_image, cropped_image, mask=mask)
+                cv2.imwrite('segmentedd.png', segmented_image)
 
-                # Konversi citra tersegmentasi ke grayscale jika perlu
                 if len(segmented_image.shape) == 3:
+                    # Konversi citra berwarna (3 channel) menjadi grayscale
                     segmented_image_gray = cv2.cvtColor(segmented_image, cv2.COLOR_RGBA2GRAY)
+                    
+                    # Simpan citra grayscale hasil segmentasi ke file dengan nama dan ekstensi yang benar
+                    cv2.imwrite('segmented_image_gray.png', segmented_image_gray)
+
+                    # Menggunakan blur untuk menghilangkan noise
+                    blurred = cv2.GaussianBlur(segmented_image_gray, (3, 5), 0)
+
+                    cv2.imwrite('gaussian.png', blurred)
+
+                    # Deteksi tepi menggunakan algoritma Canny
+                    edges = cv2.Canny(blurred, 50, 10)
+                    
+                    cv2.imwrite('edges.png', edges)
+
+                    # Temukan kontur di gambar hasil deteksi tepi
+                    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
                     # Tentukan rentang warna putih
-                    lower_white = np.array([80], dtype=np.uint8)
+                    lower_white = np.array([130], dtype=np.uint8)
                     upper_white = np.array([255], dtype=np.uint8)
                     
                     # Buat mask untuk warna putih
                     white_mask = cv2.inRange(segmented_image_gray, lower_white, upper_white)
                     white_pixels = cv2.countNonZero(white_mask)
 
+                    # Cari kontur di white_mask
+                    contours, _ = cv2.findContours(white_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
                     # Ganti piksel putih dengan warna kuning pada gambar BGR
                     white_mask_bgr = cv2.cvtColor(white_mask, cv2.COLOR_GRAY2BGR)
                     white_mask_bgr[np.where((white_mask_bgr == [255, 255, 255]).all(axis=2))] = [0, 0, 255]
 
-                    # Tentukan rentang warna hitam (minyak)
-                    lower_black = np.array([1], dtype=np.uint8)
-                    upper_black = np.array([40], dtype=np.uint8)
+                    # Inisialisasi jumlah bounding box
+                    jumlah_bounding_box = 0
 
-                    # Buat mask untuk warna hitam
-                    black_mask = cv2.inRange(segmented_image_gray, lower_black, upper_black)
-                    black_pixels = cv2.countNonZero(black_mask)
+                        # Gambar bounding box di sekitar kontur (lubang) dan hitung ukuran dalam cm
+                    for contour in contours:
+                        x, y, w, h = cv2.boundingRect(contour)
 
-                    # Ganti piksel hitam dengan warna kuning pada gambar BGR
-                    black_mask_bgr = cv2.cvtColor(black_mask, cv2.COLOR_GRAY2BGR)
-                    black_mask_bgr[np.where((black_mask_bgr == [255, 255, 255]).all(axis=2))] = [0, 0, 255]
-                    cv2.imwrite('blackMaskBgr.png', black_mask_bgr)
-                    print(black_pixels)
+                        # Hitung ukuran dalam cm (dengan asumsi 1 pixel = 1 cm)
+                        lebar_cm = w * 0.075  # Lebar bounding box dalam cm
+                        tinggi_cm = h * 0.081 # Tinggi bounding box dalam cm
 
-                    # Hitung jumlah piksel untuk setiap nilai intensitas dari 0 hingga 255
-                    pixel_counts = np.bincount(segmented_image_gray.flatten(), minlength=256)
+                        # Cek jika lebar atau tinggi lebih dari threshold (misal 0.5 cm)
+                        if lebar_cm > 0.2 and tinggi_cm > 0.2:
+                            # Gambar bounding box jika ukuran lebih dari 0.5 cm
+                            cv2.rectangle(white_mask_bgr, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
-                    # Tentukan rentang warna dari 1 hingga 255
-                    lower_range = np.array([1], dtype=np.uint8)
-                    upper_range = np.array([255], dtype=np.uint8)
+                            # Tampilkan ukuran bounding box di atas dan samping bounding box
+                            font = cv2.FONT_HERSHEY_SIMPLEX
+                            font_scale = 0.5
+                            font_color = (255, 255, 255)  # Warna putih
+                            thickness = 1
 
-                    # Buat mask untuk rentang warna
-                    range_mask = cv2.inRange(segmented_image_gray, lower_range, upper_range)
-                    range_pixels = cv2.countNonZero(range_mask)
+                            # Tampilkan lebar di atas bounding box
+                            text_lebar = f'L: {lebar_cm:.2f} cm'
+                            cv2.putText(white_mask_bgr, text_lebar, (x, y - 10), font, font_scale, font_color, thickness)
 
-                    percentageKerusakan = (white_pixels / range_pixels) * 100
+                            # Tampilkan tinggi di samping bounding box
+                            text_tinggi = f'T: {tinggi_cm:.2f} cm'
+                            cv2.putText(white_mask_bgr, text_tinggi, (x + w + 10, y + h // 2), font, font_scale, font_color, thickness)
 
-                    # Bagian di mana Anda menentukan kategori minyak
-                    global previous_oil_category, start_time
-                    
-                    # Tentukan kategori minyak
-                    if black_pixels == 0:
-                        oil_category = 0
-                    elif black_pixels <= 48:
-                        oil_category = 2
-                    elif 48.001 <= black_pixels <= 220:
-                        oil_category = 3
-                    elif black_pixels > 220.001:
-                        oil_category = 4
+                            print(f'Bounding Box {jumlah_bounding_box + 1}: Lebar = {lebar_cm:.2f} cm, Tinggi = {tinggi_cm:.2f} cm')
+
+                            # Tambahkan jumlah bounding box
+                            jumlah_bounding_box += 1
+                        else:
+                            print(f'Kontur diabaikan: Lebar = {lebar_cm:.2f} cm, Tinggi = {tinggi_cm:.2f} cm (di bawah threshold 0.5 cm)')
+
+                    # Simpan hasil gambar dengan bounding box
+                    cv2.imwrite('whiteMaskBgr.png', white_mask_bgr)
+
+                    # Hitung total piksel putih
+                    white_pixels = cv2.countNonZero(white_mask)
+                    print(f'Jumlah piksel putih di dalam daun: {white_pixels}')
+                    print(f'Jumlah bounding box (lubang): {jumlah_bounding_box}')
+
+
+                    if jumlah_bounding_box >= 1:
+                        Kerusakan = "Rambing"
                     else:
-                        oil_category = 0
+                        Kerusakan = "Utuh"
 
+                    # Ubah gambar grayscale menjadi BGR
+                    segmented_image_bgr = cv2.cvtColor(segmented_image_gray, cv2.COLOR_GRAY2BGR)
 
-                    # Tentukan kategori minyak
-                    # Tentukan kategori minyak
-                    if (average_hue <= 109 and (oil_category == 3 or oil_category == 4)):
-                        color_category = "MM"
-                    elif (average_hue <= 109 and oil_category == 2):
-                        color_category = "BB"
-                    elif (106.7001 <= average_hue <= 107.7000 and (oil_category == 2 or oil_category)):
-                        color_category = "B"
-                    elif (average_hue > 109.001 and (oil_category == 3 or oil_category == 4)):
-                        color_category = "M"
-                    else:
-                        color_category = "Tidak Terdefinisi"
+                    # Gabungkan gambar BGR dengan mask kuning dan bounding box hijau
+                    combined_image = cv2.addWeighted(segmented_image_bgr, 0.7, white_mask_bgr, 0.3, 0)
 
-                    
-                    # Debug print statements
-                    print(f'Current oil_category: {oil_category}')
-                    print(f'Previous oil_category: {previous_oil_category}')
-
-                    # Jika kategori minyak tidak berubah
-                    if oil_category == previous_oil_category:
-                        # Jika sudah lebih dari 4 detik sejak terakhir kali berubah
-                        if time.time() - start_time >= 3:
-                            print("Sending blink signal to Arduino")  # Debug print
-                            ser.write(b'B')  # Kirim sinyal ke Arduino untuk blink LED
-                    else:
-                        # Reset waktu jika kategori minyak berubah
-                        previous_oil_category = oil_category
-                        start_time = time.time()  # Reset timer hanya saat nilai berubah
-                        print("Category changed, resetting timer") 
-                    PanjangDaun = max(panjang, 0)
+                    # Simpan gambar hasil gabungan
+                    cv2.imwrite('combined_output.png', combined_image)
                               # Update label with processed information
                     self.label_dimensions.config(
                         # \nWarna  :  {dominant_value}\nFrekwensi :  {dominant_frequency}\nKerusakan :  {percentageKerusakan:.2f}%
-                        text=f"Panjang daun: {PanjangDaun:.1f} cm\nKualitas daun: {kualitas}\nKategori Minyak = M{oil_category}\nBanyak Pixel : {black_pixels}\nWarna: {color_category}\nHue: {average_hue:.1f}\nSaturasi: {average_saturation:.1f}"
+                        text=f"Kerusakan: {Kerusakan}"
                     )
 
                 else:
