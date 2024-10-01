@@ -166,7 +166,7 @@ class WebcamApp:
             # Menyimpan area 50x50 dan gambar HSV
             cv2.imwrite("hsv_area_50x50.png", hsv_area)
 
-            # Debug print statements
+            # Debug print statements x 
             print(f"Average Hue: {average_hue}")
             print(f"Average Saturation: {average_saturation}")
             print(f"Average Value: {average_value}")
@@ -213,6 +213,7 @@ class WebcamApp:
 
                 # Segmentasikan objek dengan masker
                 segmented_image = cv2.bitwise_and(cropped_image, cropped_image, mask=mask)
+                cv2.imwrite('segmentedd.png', segmented_image)
 
                 if len(segmented_image.shape) == 3:
                     segmented_image_gray = cv2.cvtColor(segmented_image, cv2.COLOR_RGBA2GRAY)
@@ -255,11 +256,11 @@ class WebcamApp:
                             thickness = 1
 
                             # Tampilkan lebar di atas bounding box
-                            text_lebar = f'Lebar: {lebar_cm:.2f} cm'
+                            text_lebar = f'L: {lebar_cm:.2f} cm'
                             cv2.putText(white_mask_bgr, text_lebar, (x, y - 10), font, font_scale, font_color, thickness)
 
                             # Tampilkan tinggi di samping bounding box
-                            text_tinggi = f'Tinggi: {tinggi_cm:.2f} cm'
+                            text_tinggi = f'T: {tinggi_cm:.2f} cm'
                             cv2.putText(white_mask_bgr, text_tinggi, (x + w + 10, y + h // 2), font, font_scale, font_color, thickness)
 
                             print(f'Bounding Box {jumlah_bounding_box + 1}: Lebar = {lebar_cm:.2f} cm, Tinggi = {tinggi_cm:.2f} cm')
@@ -367,12 +368,18 @@ class WebcamApp:
                     #     color_category = "Tidak Terdefinisi"
 
                     if average_hue <= 106.2:
-                        color_category = "BB"
+                        if average_value < 120:
+                            color_category = "BB"
+                        else:
+                            color_category = "MM"
+                        # color_category = "BB"
                     elif 106.2 < average_hue <= 107.2:
                         if average_value <= 106:
                             color_category = "B"
-                        else:
+                        elif 106 < average_value <= 117:
                             color_category = "MM"
+                        else:
+                            color_category = "M"
                     elif 107.2 < average_hue <= 108:
                         if average_value <= 106:
                             color_category = "B"
@@ -403,7 +410,7 @@ class WebcamApp:
                     
                     self.label_dimensions.config(
                         # \nWarna  :  {dominant_value}\nFrekwensi :  {domi`nant_frequency}\nKerusakan :  {percentageKerusakan:.2f}%
-                        text=f"Grade:\n {kualitas} | {color_category} | {Kerusakan}"
+                        text=f"Grade:\n {kualitas} | {color_category} | {Kerusakan} | M{oil_category} \nHue : {average_hue:.1f}\nSaturation : {average_saturation:.1f}\nValue : {average_value:.1f}\nPixel: {black_pixels}"
 
                     )
               
