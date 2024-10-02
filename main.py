@@ -16,7 +16,7 @@ import matplotlib.image as mpimg
 class WebcamApp:
     def __init__(self, window):
         self.window = window
-        self.window.title("Webcam App")
+        self.window.title("TARO")
 
         # Initialize video capture
         self.video_capture = cv2.VideoCapture(0)  # Ensure the camera index is correct
@@ -124,15 +124,19 @@ class WebcamApp:
         if os.path.exists(path):
             # Membaca gambar dari path yang diberikan
             image = mpimg.imread(path)
+            cv2.imwrite('1_originalImage.png', image)
 
             if image is None:
                 print("Gambar tidak ditemukan di path:", path)
                 return
-                 # Konversi gambar ke Grayscale
-            img_gray = cv2.cvtColor(image, cv2.COLOR_RGBA2GRAY)
 
-            # Segmentasi Citra Menggunakan Thresholding
+            # Proses 1: Konversi gambar ke Grayscale
+            img_gray = cv2.cvtColor(image, cv2.COLOR_RGBA2GRAY)
+            cv2.imwrite('2_grayscaleImage.png', img_gray)
+
+            # Proses 2: Segmentasi Citra Menggunakan Thresholding
             _, thresh = cv2.threshold(img_gray, 128, 255, cv2.THRESH_BINARY_INV)
+            cv2.imwrite('3_thresholdImage.png', thresh)
 
             # Temukan Kontur
             contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -141,8 +145,9 @@ class WebcamApp:
                 largest_contour = max(contours, key=cv2.contourArea)
                 x, y, w, h = cv2.boundingRect(largest_contour)
 
-                # Deteksi kerusakan dan minyak 
+                # Proses 3: Potong gambar sesuai bounding box kontur terbesar
                 cropped_image = image[y:y+h, x:x+w]
+                cv2.imwrite('4_croppedImage.png', cropped_image)
 
                 # Buat masker untuk citra yang dipotong
                 mask = np.zeros((h, w), dtype=np.uint8)
@@ -155,114 +160,135 @@ class WebcamApp:
 
                 # Segmentasikan objek dengan masker
                 segmented_image = cv2.bitwise_and(cropped_image, cropped_image, mask=mask)
-                cv2.imwrite('segmentedd.png', segmented_image)
+                cv2.imwrite('5_segmentedImage.png', segmented_image)
 
                 if len(segmented_image.shape) == 3:
                     # Konversi citra berwarna (3 channel) menjadi grayscale
                     segmented_image_gray = cv2.cvtColor(segmented_image, cv2.COLOR_RGBA2GRAY)
-                    
-                    # Simpan citra grayscale hasil segmentasi ke file dengan nama dan ekstensi yang benar
-                    cv2.imwrite('segmented_image_gray.png', segmented_image_gray)
+                    cv2.imwrite('6_segmented_image_gray.png', segmented_image_gray)
 
-                    # Menggunakan blur untuk menghilangkan noise
-                    blurred = cv2.GaussianBlur(segmented_image_gray, (3, 5), 0)
+                    if contours:
+                        largest_contour = max(contours, key=cv2.contourArea)
+                        
+                        # Menghitung perimeter, area, dan compactness hanya jika ada kontur
+                        perimeter = cv2.arcLength(largest_contour, True)  # Panjang perimeter kontur
+                        area = cv2.contourArea(largest_contour)  # Luas area kontur
+                        compactness = (perimeter ** 2) / (4 * np.pi * area)  # Menghitung compactness (rasio keliling & area)
 
-                    cv2.imwrite('gaussian.png', blurred)
+                        # Gambar kontur pada gambar asli (atau gambar grayscale)
+                        image_with_contours = cv2.cvtColor(segmented_image_gray, cv2.COLOR_GRAY2BGR)  # Pastikan gambar menjadi 3 channel untuk warna
+                        cv2.drawContours(image_with_contours, [largest_contour], -1, (0, 255, 0), 2)  # Gambar kontur pada gambar
 
-                    # Deteksi tepi menggunakan algoritma Canny
-                    edges = cv2.Canny(blurred, 50, 10)
-                    
-                    cv2.imwrite('edges.png', edges)
+                        # Tambahkan teks informasi perimeter, area, dan compactness
+                        font = cv2.FONT_HERSHEY_SIMPLEX
+                        font_scale = 0.5
+                        font_color = (255, 255, 255)  # Putih
+                        thickness = 1
 
-                    # Temukan kontur di gambar hasil deteksi tepi
-                    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                        # Tampilkan perimeter, area, dan compactness di gambar
+                        text_perimeter = f'Perimeter: {perimeter:.2f}'
+                        text_area = f'Area: {area:.2f}'
+                        text_compactness = f'Compactness: {compactness:.2f}'
 
-                    # Tentukan rentang warna putih
-                    lower_white = np.array([130], dtype=np.uint8)
+                        cv2.putText(image_with_contours, text_perimeter, (10, 30), font, font_scale, font_color, thickness)
+                        cv2.putText(image_with_contours, text_area, (10, 50), font, font_scale, font_color, thickness)
+                        cv2.putText(image_with_contours, text_compactness, (10, 70), font, font_scale, font_color, thickness)
+
+                        # Simpan gambar dengan informasi tepi dan kekasaran
+                        cv2.imwrite('output_edge_detection_with_info.png', image_with_contours)
+
+                    else:
+                        print("Tidak ditemukan kontur pada gambar.")
+
+                    # Simpan gambar yang menunjukkan hasil deteksi tepi daun
+                    result_contour_image = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
+                    cv2.drawContours(result_contour_image, [largest_contour], -1, (0, 255, 0), 2)
+                    cv2.imwrite('7_contour_detection_result.png', result_contour_image)
+
+                    # Proses 5: Tentukan rentang warna putih untuk deteksi area dalam daun
+                    lower_white = np.array([150], dtype=np.uint8)
                     upper_white = np.array([255], dtype=np.uint8)
-                    
-                    # Buat mask untuk warna putih
                     white_mask = cv2.inRange(segmented_image_gray, lower_white, upper_white)
                     white_pixels = cv2.countNonZero(white_mask)
 
                     # Cari kontur di white_mask
                     contours, _ = cv2.findContours(white_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-                    # Ganti piksel putih dengan warna kuning pada gambar BGR
                     white_mask_bgr = cv2.cvtColor(white_mask, cv2.COLOR_GRAY2BGR)
                     white_mask_bgr[np.where((white_mask_bgr == [255, 255, 255]).all(axis=2))] = [0, 0, 255]
 
-                    # Inisialisasi jumlah bounding box
                     jumlah_bounding_box = 0
-
-                        # Gambar bounding box di sekitar kontur (lubang) dan hitung ukuran dalam cm
                     for contour in contours:
                         x, y, w, h = cv2.boundingRect(contour)
 
-                        # Hitung ukuran dalam cm (dengan asumsi 1 pixel = 1 cm)
-                        lebar_cm = w * 0.075  # Lebar bounding box dalam cm
-                        tinggi_cm = h * 0.081 # Tinggi bounding box dalam cm
+                        # Hitung ukuran dalam cm
+                        lebar_cm = w * 0.075
+                                                                                                                                                                                                                                                                                                                                                                                                                    
+                        tinggi_cm = h * 0.081
 
-                        # Cek jika lebar atau tinggi lebih dari threshold (misal 0.5 cm)
                         if lebar_cm > 0.2 and tinggi_cm > 0.2:
-                            # Gambar bounding box jika ukuran lebih dari 0.5 cm
                             cv2.rectangle(white_mask_bgr, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
-                            # Tampilkan ukuran bounding box di atas dan samping bounding box
                             font = cv2.FONT_HERSHEY_SIMPLEX
                             font_scale = 0.5
-                            font_color = (255, 255, 255)  # Warna putih
+                            font_color = (255, 255, 255)
                             thickness = 1
 
-                            # Tampilkan lebar di atas bounding box
                             text_lebar = f'L: {lebar_cm:.2f} cm'
                             cv2.putText(white_mask_bgr, text_lebar, (x, y - 10), font, font_scale, font_color, thickness)
 
-                            # Tampilkan tinggi di samping bounding box
                             text_tinggi = f'T: {tinggi_cm:.2f} cm'
                             cv2.putText(white_mask_bgr, text_tinggi, (x + w + 10, y + h // 2), font, font_scale, font_color, thickness)
 
                             print(f'Bounding Box {jumlah_bounding_box + 1}: Lebar = {lebar_cm:.2f} cm, Tinggi = {tinggi_cm:.2f} cm')
-
-                            # Tambahkan jumlah bounding box
                             jumlah_bounding_box += 1
                         else:
                             print(f'Kontur diabaikan: Lebar = {lebar_cm:.2f} cm, Tinggi = {tinggi_cm:.2f} cm (di bawah threshold 0.5 cm)')
 
-                    # Simpan hasil gambar dengan bounding box
-                    cv2.imwrite('whiteMaskBgr.png', white_mask_bgr)
+                    # Simpan gambar hasil deteksi lubang pada daun
+                    cv2.imwrite('8_whiteMaskBgr.png', white_mask_bgr)
 
-                    # Hitung total piksel putih
+                    # Ambang batas kekasaran
+                    threshold_rusak = 1.8  # Nilai compactness > 1.2 dapat dianggap rusak
+                    print("Compacness: ", compactness)
+                    print("Thickness: ", threshold_rusak)
+
+                    if jumlah_bounding_box >= 1 and compactness <= threshold_rusak:
+                        Kerusakan = "Rambing Bolong"
+                    elif compactness > threshold_rusak and jumlah_bounding_box == 0:
+                        print("Deteksi: Tepi Daun Rusak")
+                        Kerusakan = "Tepi Daun Rusak"
+                    elif compactness > threshold_rusak and jumlah_bounding_box >= 1:
+                        Kerusakan = "Bolong dan Tepi Rusak"
+                    elif jumlah_bounding_box == 0 and compactness <= threshold_rusak:
+                        Kerusakan = "Utuh"
+                    else:
+                        print("Deteksi: Tepi Daun Sempurna")
+                        Kerusakan = "Utuh"
+                    
+
+                    # Hitung jumlah piksel putih dan jumlah bounding box
                     white_pixels = cv2.countNonZero(white_mask)
                     print(f'Jumlah piksel putih di dalam daun: {white_pixels}')
                     print(f'Jumlah bounding box (lubang): {jumlah_bounding_box}')
 
-
-                    if jumlah_bounding_box >= 1:
-                        Kerusakan = "Rambing"
-                    else:
-                        Kerusakan = "Utuh"
-
-                    # Ubah gambar grayscale menjadi BGR
-                    segmented_image_bgr = cv2.cvtColor(segmented_image_gray, cv2.COLOR_GRAY2BGR)
-
                     # Gabungkan gambar BGR dengan mask kuning dan bounding box hijau
+                    segmented_image_bgr = cv2.cvtColor(segmented_image_gray, cv2.COLOR_GRAY2BGR)
                     combined_image = cv2.addWeighted(segmented_image_bgr, 0.7, white_mask_bgr, 0.3, 0)
 
-                    # Simpan gambar hasil gabungan
-                    cv2.imwrite('combined_output.png', combined_image)
-                              # Update label with processed information
-                    self.label_dimensions.config(
-                        # \nWarna  :  {dominant_value}\nFrekwensi :  {dominant_frequency}\nKerusakan :  {percentageKerusakan:.2f}%
-                        text=f"Kerusakan: {Kerusakan}"
-                    )
+                    # Simpan gambar hasil gabungan dari deteksi kontur dan lubang
+                    cv2.imwrite('9_combined_output.png', combined_image)
 
+                    # Update label untuk menampilkan hasil kerusakan
+                    self.label_dimensions.config(text=f"Kerusakan: \n{Kerusakan}")
                 else:
-                    print("Segmented Not Found")
+                    print("Segmented Image Not Found")
             else:
                 print("Contour Not Found")
         else:
             print("Image path not found.")
+
+
 
     def determine_leaf_quality(self, panjang):
         if panjang < 5:
