@@ -192,7 +192,8 @@ class WebcamApp:
             if contours:
                 largest_contour = max(contours, key=cv2.contourArea)
                 x, y, w, h = cv2.boundingRect(largest_contour)
-
+                pixel_panjang = w
+                pixel_lebar = h
                 # Hitung dimensi
                 panjang = 0.1101 * w - 6.882
 
@@ -216,82 +217,120 @@ class WebcamApp:
                 cv2.imwrite('segmentedd.png', segmented_image)
 
                 if len(segmented_image.shape) == 3:
+                    # Konversi citra berwarna (3 channel) menjadi grayscale
                     segmented_image_gray = cv2.cvtColor(segmented_image, cv2.COLOR_RGBA2GRAY)
+                    cv2.imwrite('6_segmented_image_gray.png', segmented_image_gray)
 
-                    # Tentukan rentang warna putih
-                    lower_white = np.array([130], dtype=np.uint8)
+                    if contours:
+                        largest_contour = max(contours, key=cv2.contourArea)
+                        
+                        # Menghitung perimeter, area, dan compactness hanya jika ada kontur
+                        perimeter = cv2.arcLength(largest_contour, True)  # Panjang perimeter kontur
+                        area = cv2.contourArea(largest_contour)  # Luas area kontur
+                        compactness = (perimeter ** 2) / (4 * np.pi * area)  # Menghitung compactness (rasio keliling & area)
+
+                        # Gambar kontur pada gambar asli (atau gambar grayscale)
+                        image_with_contours = cv2.cvtColor(segmented_image_gray, cv2.COLOR_GRAY2BGR)  # Pastikan gambar menjadi 3 channel untuk warna
+                        cv2.drawContours(image_with_contours, [largest_contour], -1, (0, 255, 0), 2)  # Gambar kontur pada gambar
+
+                        # Tambahkan teks informasi perimeter, area, dan compactness
+                        font = cv2.FONT_HERSHEY_SIMPLEX
+                        font_scale = 0.5
+                        font_color = (255, 255, 255)  # Putih
+                        thickness = 1
+
+                        # Tampilkan perimeter, area, dan compactness di gambar
+                        text_perimeter = f'Perimeter: {perimeter:.2f}'
+                        text_area = f'Area: {area:.2f}'
+                        text_compactness = f'Compactness: {compactness:.2f}'
+
+                        cv2.putText(image_with_contours, text_perimeter, (10, 30), font, font_scale, font_color, thickness)
+                        cv2.putText(image_with_contours, text_area, (10, 50), font, font_scale, font_color, thickness)
+                        cv2.putText(image_with_contours, text_compactness, (10, 70), font, font_scale, font_color, thickness)
+
+                        # Simpan gambar dengan informasi tepi dan kekasaran
+                        cv2.imwrite('output_edge_detection_with_info.png', image_with_contours)
+
+                    else:
+                        print("Tidak ditemukan kontur pada gambar.")
+
+                    # Simpan gambar yang menunjukkan hasil deteksi tepi daun
+                    result_contour_image = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
+                    cv2.drawContours(result_contour_image, [largest_contour], -1, (0, 255, 0), 2)
+                    cv2.imwrite('7_contour_detection_result.png', result_contour_image)
+
+                    # Proses 5: Tentukan rentang warna putih untuk deteksi area dalam daun
+                    lower_white = np.array([150], dtype=np.uint8)
                     upper_white = np.array([255], dtype=np.uint8)
-                    
-                    # Buat mask untuk warna putih
                     white_mask = cv2.inRange(segmented_image_gray, lower_white, upper_white)
                     white_pixels = cv2.countNonZero(white_mask)
 
                     # Cari kontur di white_mask
                     contours, _ = cv2.findContours(white_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-                    # Ganti piksel putih dengan warna kuning pada gambar BGR
                     white_mask_bgr = cv2.cvtColor(white_mask, cv2.COLOR_GRAY2BGR)
                     white_mask_bgr[np.where((white_mask_bgr == [255, 255, 255]).all(axis=2))] = [0, 0, 255]
 
-                    # Inisialisasi jumlah bounding box
                     jumlah_bounding_box = 0
-
-                        # Gambar bounding box di sekitar kontur (lubang) dan hitung ukuran dalam cm
                     for contour in contours:
                         x, y, w, h = cv2.boundingRect(contour)
 
-                        # Hitung ukuran dalam cm (dengan asumsi 1 pixel = 1 cm)
-                        lebar_cm = w * 0.075  # Lebar bounding box dalam cm
-                        tinggi_cm = h * 0.081 # Tinggi bounding box dalam cm
+                        # Hitung ukuran dalam cm
+                        lebar_cm = w * 0.075
+                                                                                                                                                                                                                                                                                                                                                                                                                    
+                        tinggi_cm = h * 0.081
 
-                        # Cek jika lebar atau tinggi lebih dari threshold (misal 0.5 cm)
                         if lebar_cm > 0.2 and tinggi_cm > 0.2:
-                            # Gambar bounding box jika ukuran lebih dari 0.5 cm
                             cv2.rectangle(white_mask_bgr, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
-                            # Tampilkan ukuran bounding box di atas dan samping bounding box
                             font = cv2.FONT_HERSHEY_SIMPLEX
                             font_scale = 0.5
-                            font_color = (255, 255, 255)  # Warna putih
+                            font_color = (255, 255, 255)
                             thickness = 1
 
-                            # Tampilkan lebar di atas bounding box
                             text_lebar = f'L: {lebar_cm:.2f} cm'
                             cv2.putText(white_mask_bgr, text_lebar, (x, y - 10), font, font_scale, font_color, thickness)
 
-                            # Tampilkan tinggi di samping bounding box
                             text_tinggi = f'T: {tinggi_cm:.2f} cm'
                             cv2.putText(white_mask_bgr, text_tinggi, (x + w + 10, y + h // 2), font, font_scale, font_color, thickness)
 
                             print(f'Bounding Box {jumlah_bounding_box + 1}: Lebar = {lebar_cm:.2f} cm, Tinggi = {tinggi_cm:.2f} cm')
-
-                            # Tambahkan jumlah bounding box
                             jumlah_bounding_box += 1
                         else:
                             print(f'Kontur diabaikan: Lebar = {lebar_cm:.2f} cm, Tinggi = {tinggi_cm:.2f} cm (di bawah threshold 0.5 cm)')
 
-                    # Simpan hasil gambar dengan bounding box
-                    cv2.imwrite('whiteMaskBgr.png', white_mask_bgr)
+                    # Simpan gambar hasil deteksi lubang pada daun
+                    cv2.imwrite('8_whiteMaskBgr.png', white_mask_bgr)
 
-                    # Hitung total piksel putih
+                    # Ambang batas kekasaran
+                    threshold_rusak = 2  # Nilai compactness > 1.2 dapat dianggap rusak
+                    print("Compacness: ", compactness)
+                    print("Thickness: ", threshold_rusak)
+
+                    if jumlah_bounding_box >= 1 and compactness <= threshold_rusak:
+                        Kerusakan = "Rambing"
+                    elif compactness > threshold_rusak and jumlah_bounding_box == 0:
+                        Kerusakan = "Rambing"
+                    elif compactness > threshold_rusak and jumlah_bounding_box >= 1:
+                        Kerusakan = "Rambing"
+                    elif jumlah_bounding_box == 0 and compactness <= threshold_rusak:
+                        Kerusakan = "Utuh"
+                    else:
+                        Kerusakan = "Utuh"
+                    
+
+                    # Hitung jumlah piksel putih dan jumlah bounding box
                     white_pixels = cv2.countNonZero(white_mask)
                     print(f'Jumlah piksel putih di dalam daun: {white_pixels}')
                     print(f'Jumlah bounding box (lubang): {jumlah_bounding_box}')
 
-
-                    if jumlah_bounding_box >= 1:
-                        Kerusakan = "Rambing"
-                    else:
-                        Kerusakan = "Utuh"
-
-                    # Ubah gambar grayscale menjadi BGR
-                    segmented_image_bgr = cv2.cvtColor(segmented_image_gray, cv2.COLOR_GRAY2BGR)
-
                     # Gabungkan gambar BGR dengan mask kuning dan bounding box hijau
+                    segmented_image_bgr = cv2.cvtColor(segmented_image_gray, cv2.COLOR_GRAY2BGR)
                     combined_image = cv2.addWeighted(segmented_image_bgr, 0.7, white_mask_bgr, 0.3, 0)
 
-                    # Simpan gambar hasil gabungan
-                    cv2.imwrite('combined_output.png', combined_image)
+                    # Simpan gambar hasil gabungan dari deteksi kontur dan lubang
+                    cv2.imwrite('9_combined_output.png', combined_image)
+
 
                     # Tentukan rentang warna hitam (minyak)
                     lower_black = np.array([1], dtype=np.uint8)
@@ -336,11 +375,11 @@ class WebcamApp:
 
                     if black_pixels == 0:
                         oil_category = 0
-                    elif black_pixels <= 254:
+                    elif black_pixels <= 80:
                         oil_category = 2
-                    elif 205 <= black_pixels <= 1320:
+                    elif 80 <= black_pixels <= 2200:
                         oil_category = 3
-                    elif black_pixels > 1500:
+                    elif black_pixels > 2200:
                         oil_category = 4
                     else:
                         oil_category = 0
@@ -376,10 +415,8 @@ class WebcamApp:
                     elif 106.2 < average_hue <= 107.2:
                         if average_value <= 106:
                             color_category = "B"
-                        elif 106 < average_value <= 117:
-                            color_category = "MM"
                         else:
-                            color_category = "M"
+                            color_category = "MM"
                     elif 107.2 < average_hue <= 108:
                         if average_value <= 106:
                             color_category = "B"
@@ -391,6 +428,27 @@ class WebcamApp:
                         color_category = "M"
                     else:
                         color_category = "Tidak Terdefinisi"
+
+                    # if average_hue <= 106.2:
+                    #     if average_value < 120:
+                    #         color_category = "BB"
+                    #     else:
+                    #         color_category = "MM"
+                    #     # color_category = "BB"
+                    # elif 106.2 < average_hue <= 107.2:
+                    #     if average_value <= 106:
+                    #         color_category = "B"
+                    #     else:
+                    #         color_category = "MM"
+                    # elif 107.2 < average_hue <= 108:
+                    #     if average_value <= 106:
+                    #         color_category = "B"
+                    #     else:  # average_value > 122
+                    #         color_category = "MM"
+                    # elif average_hue > 108:
+                    #     color_category = "M"
+                    # else:
+                    #     color_category = "Tidak Terdefinisi"
 
                     sent_signal = False  # Tambahkan flag untuk melacak pengiriman sinyal
 
@@ -410,7 +468,7 @@ class WebcamApp:
                     
                     self.label_dimensions.config(
                         # \nWarna  :  {dominant_value}\nFrekwensi :  {domi`nant_frequency}\nKerusakan :  {percentageKerusakan:.2f}%
-                        text=f"Grade:\n {kualitas} | {color_category} | {Kerusakan} | M{oil_category} \nHue : {average_hue:.1f}\nSaturation : {average_saturation:.1f}\nValue : {average_value:.1f}\nPixel: {black_pixels}"
+                        text=f"Grade:\n {kualitas} | {color_category} | {Kerusakan} | M{oil_category} \nPanjang: {pixel_panjang}\nLebar: {pixel_lebar}\nHue : {average_hue:.1f}\nSaturation : {average_saturation:.1f}\nValue : {average_value:.1f}\nPixel: {black_pixels}"
 
                     )
               
