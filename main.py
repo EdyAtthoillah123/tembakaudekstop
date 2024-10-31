@@ -6,20 +6,21 @@ import numpy as np
 import serial
 import time
 import matplotlib.image as mpimg
+import serial
+import time
 
-# # Setup komunikasi serial
-# try:
-#     ser = serial.Serial('COM3', 9600)  # Ganti 'COM3' dengan port serial Arduino Anda
-# except serial.SerialException as e:
-#     print(f"Error opening serial port: {e}")
-#     ser = None
-
-# # Inisialisasi variabel global di luar fungsi
-# previous_oil_category = None
-# start_time = time.time()
+try:
+    arduino = serial.Serial('COM3', 9600, timeout=1)
+    time.sleep(2)  # Tunggu beberapa detik agar koneksi stabil
+    print("Koneksi berhasil ke Arduino!")
+    arduino.close()  # Tutup koneksi setelah pengujian
+except serial.SerialException as e:
+    print(f"Kesalahan: {e}")
 
 class WebcamApp:
     def __init__(self, window):
+        self.arduino = serial.Serial('COM3', 9600, timeout=1)
+        time.sleep(2)  # Tunggu agar koneksi serial stabil
         self.window = window
         self.window.title("Webcam App")
 
@@ -134,6 +135,7 @@ class WebcamApp:
                 print("Gambar tidak ditemukan di path:", path)
                 return
 
+            cv2.imwrite("Original_Image.png", image)
             # Konversi gambar dari BGR ke HSV
             hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
@@ -170,6 +172,7 @@ class WebcamApp:
             print(f"Average Hue: {average_hue}")
             print(f"Average Saturation: {average_saturation}")
             print(f"Average Value: {average_value}")
+                        # Mengirimkan nilai rata-rata Hue ke Arduino
 
             normalisasiHue = average_hue / 360
             normalisasiSaturation = average_saturation / 255
@@ -195,7 +198,7 @@ class WebcamApp:
                 pixel_panjang = w
                 pixel_lebar = h
                 # Hitung dimensi
-                panjang = 0.1101 * w - 6.882
+                panjang = 0.0968 * pixel_panjang - 3.4385
 
                 # Tentukan kualitas daun
                 kualitas = self.determine_leaf_quality(panjang)
@@ -215,11 +218,65 @@ class WebcamApp:
                 # Segmentasikan objek dengan masker
                 segmented_image = cv2.bitwise_and(cropped_image, cropped_image, mask=mask)
                 cv2.imwrite('segmentedd.png', segmented_image)
+                # Temukan kontur pada gambar masker
+                contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+                # Buat gambar kosong dengan ukuran yang sama dengan segmented_image
+                inner_mask = np.zeros_like(mask)
+
+                # Loop melalui setiap kontur yang ditemukan
+                for contour in contours:
+                    # Shrink kontur ke dalam dengan jarak 30 piksel menggunakan offset
+                    offset_distance = 20
+
+                    # Buat offset dengan -30 piksel ke dalam menggunakan `cv2.drawContours`
+                    # Offset dilakukan dengan menggeser titik-titik kontur ke dalam menggunakan erosi
+                    eroded_mask = np.zeros_like(mask)
+                    cv2.drawContours(eroded_mask, [contour], -1, 255, thickness=cv2.FILLED)
+                    
+                    # Menggunakan erosi untuk membuat kontur baru di dalam kontur asli
+                    kernel = np.ones((offset_distance, offset_distance), np.uint8)
+                    inner_contour_mask = cv2.erode(eroded_mask, kernel, iterations=1)
+
+                    # Temukan kontur baru pada inner_contour_mask
+                    inner_contours, _ = cv2.findContours(inner_contour_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+                    # Gambar kontur baru ke inner_mask
+                    cv2.drawContours(inner_mask, inner_contours, -1, 255, thickness=cv2.FILLED)
+
+                # Terapkan inner_mask sebagai masker ke gambar asli yang di-cropped
+                result_with_inner_contour = cv2.bitwise_and(cropped_image, cropped_image, mask=inner_mask)
+
+                # Simpan hasil akhir dengan kontur di dalam kontur
+                cv2.imwrite('result_with_inner_contour.png', result_with_inner_contour)
 
                 if len(segmented_image.shape) == 3:
                     # Konversi citra berwarna (3 channel) menjadi grayscale
                     segmented_image_gray = cv2.cvtColor(segmented_image, cv2.COLOR_RGBA2GRAY)
                     cv2.imwrite('6_segmented_image_gray.png', segmented_image_gray)
+                    # Buat lapisan blur dari gambar grayscale untuk efek glow
+                    blurred_gray = cv2.GaussianBlur(segmented_image_gray, (15, 15), 0)
+
+                    # Buat lapisan blur untuk efek inner glow
+                    blurred = cv2.GaussianBlur(segmented_image_gray, (15, 15), 0)
+
+                    # Tingkatkan kecerahan hanya pada bagian blur (inner glow)
+                    brightness_increase = 50  # Sesuaikan nilai ini sesuai kebutuhan
+                    brighter_glow = cv2.add(blurred, brightness_increase)
+
+                    # Gabungkan gambar asli dengan versi brighter inner glow menggunakan pengaturan alpha
+                    alpha = 0.5  # intensitas inner glow (atur antara 0-1)
+                    inner_glow = cv2.addWeighted(segmented_image_gray, 1 - alpha, brighter_glow, alpha, 0)
+
+                    # Simpan hasilnya
+                    cv2.imwrite('6_segmented_image_inner_glow_bright.png', inner_glow)
+                    inner_segmented_gray = cv2.cvtColor(result_with_inner_contour, cv2.COLOR_RGBA2GRAY)
+                    cv2.imwrite('Inner_Segmented_Gray.png', inner_segmented_gray)
+                    # Apply Gaussian blur
+                    blurred_inner_segmented_gray = cv2.GaussianBlur(inner_segmented_gray, (1, 1), 0)
+
+                    # Save the blurred grayscale image
+                    cv2.imwrite('Inner_Segmented_Gray_Blurred.png', blurred_inner_segmented_gray)
 
                     if contours:
                         largest_contour = max(contours, key=cv2.contourArea)
@@ -327,6 +384,7 @@ class WebcamApp:
                     # Gabungkan gambar BGR dengan mask kuning dan bounding box hijau
                     segmented_image_bgr = cv2.cvtColor(segmented_image_gray, cv2.COLOR_GRAY2BGR)
                     combined_image = cv2.addWeighted(segmented_image_bgr, 0.7, white_mask_bgr, 0.3, 0)
+                    cv2.imwrite('gray_image.png', segmented_image_gray)
 
                     # Simpan gambar hasil gabungan dari deteksi kontur dan lubang
                     cv2.imwrite('9_combined_output.png', combined_image)
@@ -334,10 +392,10 @@ class WebcamApp:
 
                     # Tentukan rentang warna hitam (minyak)
                     lower_black = np.array([1], dtype=np.uint8)
-                    upper_black = np.array([40], dtype=np.uint8)
+                    upper_black = np.array([36], dtype=np.uint8)
 
                     # Buat mask untuk warna hitam
-                    black_mask = cv2.inRange(segmented_image_gray, lower_black, upper_black)
+                    black_mask = cv2.inRange(blurred_inner_segmented_gray, lower_black, upper_black)
                     black_pixels = cv2.countNonZero(black_mask)
 
                     # Tentukan nilai smoothing factor alpha (nilai antara 0 dan 1, lebih kecil = lebih halus)
@@ -375,100 +433,50 @@ class WebcamApp:
 
                     if black_pixels == 0:
                         oil_category = 0
-                    elif black_pixels <= 80:
+                    elif black_pixels <= 1500:
                         oil_category = 2
-                    elif 80 <= black_pixels <= 2200:
+                    elif 1500 <= black_pixels <= 2100:
                         oil_category = 3
                     elif black_pixels > 2200:
                         oil_category = 4
                     else:
                         oil_category = 0
 
-                    # # Tentukan kategori warna berdasarkan average_hue dan average_value
-                    # if average_hue <= 106.2:
-                    #     color_category = "BB"
-                    # elif 106.2 < average_hue <= 107.2:
-                    #     if average_value <= 106:
-                    #         color_category = "B"
-                    #     elif 106 < average_value <= 112:
-                    #         color_category = "BB"
-                    #     else:  
-                    #         color_category = "MM"
-                    # elif 107.2 < average_hue <= 108:
-                    #     if average_value <= 106:
-                    #         color_category = "B"
-                    #     elif 106 < average_value <= 121:
-                    #         color_category = "MM"
-                    #     else:  # average_value > 122
-                    #         color_category = "M"
-                    # elif average_hue > 108:
-                    #     color_category = "M"
-                    # else:
-                    #     color_category = "Tidak Terdefinisi"
-
-                    if average_hue <= 106.2:
-                        if average_value < 120:
-                            color_category = "BB"
-                        else:
-                            color_category = "MM"
-                        # color_category = "BB"
-                    elif 106.2 < average_hue <= 107.2:
-                        if average_value <= 106:
+                    if average_hue <= 101.4:
+                        color_category = "BB"
+                    elif 101.4 < average_hue <= 102.7:
+                        if average_value <= 91:
                             color_category = "B"
                         else:
                             color_category = "MM"
-                    elif 107.2 < average_hue <= 108:
-                        if average_value <= 106:
+                    elif 102.7 < average_hue <= 103.9:
+                        if average_value <=91:
                             color_category = "B"
-                        elif 106 < average_value <= 121:
+                        else: 
                             color_category = "MM"
+                    elif 103.9 < average_hue <= 104.8:
+                        if average_value <= 90.3:
+                            color_category = "B"
                         else:  # average_value > 122
                             color_category = "M"
-                    elif average_hue > 108:
+                    elif average_hue > 104.8:
                         color_category = "M"
                     else:
                         color_category = "Tidak Terdefinisi"
 
-                    # if average_hue <= 106.2:
-                    #     if average_value < 120:
-                    #         color_category = "BB"
-                    #     else:
-                    #         color_category = "MM"
-                    #     # color_category = "BB"
-                    # elif 106.2 < average_hue <= 107.2:
-                    #     if average_value <= 106:
-                    #         color_category = "B"
-                    #     else:
-                    #         color_category = "MM"
-                    # elif 107.2 < average_hue <= 108:
-                    #     if average_value <= 106:
-                    #         color_category = "B"
-                    #     else:  # average_value > 122
-                    #         color_category = "MM"
-                    # elif average_hue > 108:
-                    #     color_category = "M"
-                    # else:
-                    #     color_category = "Tidak Terdefinisi"
-
-                    sent_signal = False  # Tambahkan flag untuk melacak pengiriman sinyal
-
-                    # if oil_category == previous_oil_category:
-                    #     if time.time() - start_time >= 3 and not sent_signal:  # Jika kategori tidak berubah lebih dari 3 detik dan belum dikirim
-                    #         print("Sending blink signal to Arduino")  # Debug print
-                    #         ser.write(f'S:{kualitas} | M{oil_category} | {color_category}\n'.encode())  # Kirim sinyal 'S' dan kualitas daun ke Arduino
-                    #         sent_signal = True  # Set flag menjadi True setelah pengiriman
-                    # else:
-                    #     previous_oil_category = oil_category
-                    #     start_time = time.time()  # Reset timer hanya saat nilai berubah
-                    #     sent_signal = False  # Reset flag jika kategori berubah
-                    #     print("Category changed, resetting timer")
-
 
                     PanjangDaun = max(panjang, 0)
+                    # Mengirim data ke Arduino
+                    # Kategori warna berdasarkan average_hue dan average_value
+
+                    # Format string yang ingin dikirim
+                    grading = f"{kualitas}|{color_category}|{Kerusakan}|M{oil_category}" 
+                    self.send_hue_and_color_category(average_hue, grading)
+  # Tampilkan nilai hue dan kategori warna
                     
                     self.label_dimensions.config(
                         # \nWarna  :  {dominant_value}\nFrekwensi :  {domi`nant_frequency}\nKerusakan :  {percentageKerusakan:.2f}%
-                        text=f"Grade:\n {kualitas} | {color_category} | {Kerusakan} | M{oil_category} \nPanjang: {pixel_panjang}\nLebar: {pixel_lebar}\nHue : {average_hue:.1f}\nSaturation : {average_saturation:.1f}\nValue : {average_value:.1f}\nPixel: {black_pixels}"
+                        text=f"Grade:\n {kualitas} | {color_category} | {Kerusakan} | M{oil_category} \nPanjang Asli: {panjang:.1f}\nPanjang: {pixel_panjang}\nLebar: {pixel_lebar}\nHue : {average_hue:.1f}\nSaturation : {average_saturation:.1f}\nValue : {average_value:.1f}\nPixel: {black_pixels}\nC: {compactness:1f}\nT:{threshold_rusak}"
 
                     )
               
@@ -479,20 +487,25 @@ class WebcamApp:
         else:
             print("Image path not found.")
 
+    def send_hue_and_color_category(self, hue_value, color_category):
+        data = f"{hue_value},{color_category}\n"
+        self.arduino.write(data.encode())  # Kirim data ke Arduino
+        print(f"Data dikirim: {data.strip()}")
+
     def determine_leaf_quality(self, panjang):
         print(f"Panjang daun: {panjang}")
         if panjang < 5:
             return "-"
-        elif panjang > 45:
+        elif panjang > 45.1:
             print("Masuk kategori Super")
             return "Super"
-        elif 40.3 <= panjang <= 45:
+        elif 40.1 <= panjang <= 45.1:
             print("Masuk kategori Lente 1")
             return "Lente 1"
-        elif 35.5 <= panjang < 40.3:
+        elif 35.1 <= panjang < 40.1:
             print("Masuk kategori Lente 2")
             return "Lente 2"
-        elif 30 <= panjang < 35.5:
+        elif 29.8 <= panjang < 35.1:
             print("Masuk kategori Lente 3")
             return "Lente 3"
         else:
