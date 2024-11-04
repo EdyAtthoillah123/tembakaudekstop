@@ -214,10 +214,10 @@ class WebcamApp:
 
                 # Isi area kontur pada masker
                 cv2.drawContours(mask, [adjusted_contour], -1, 255, thickness=cv2.FILLED)
-
                 # Segmentasikan objek dengan masker
                 segmented_image = cv2.bitwise_and(cropped_image, cropped_image, mask=mask)
                 cv2.imwrite('segmentedd.png', segmented_image)
+
                 # Temukan kontur pada gambar masker
                 contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -226,14 +226,14 @@ class WebcamApp:
 
                 # Loop melalui setiap kontur yang ditemukan
                 for contour in contours:
-                    # Shrink kontur ke dalam dengan jarak 30 piksel menggunakan offset
-                    offset_distance = 20
+                    # Shrink kontur ke dalam dengan jarak 50 piksel menggunakan offset
+                    offset_distance = 40
 
-                    # Buat offset dengan -30 piksel ke dalam menggunakan `cv2.drawContours`
+                    # Buat offset dengan -50 piksel ke dalam menggunakan `cv2.drawContours`
                     # Offset dilakukan dengan menggeser titik-titik kontur ke dalam menggunakan erosi
                     eroded_mask = np.zeros_like(mask)
                     cv2.drawContours(eroded_mask, [contour], -1, 255, thickness=cv2.FILLED)
-                    
+
                     # Menggunakan erosi untuk membuat kontur baru di dalam kontur asli
                     kernel = np.ones((offset_distance, offset_distance), np.uint8)
                     inner_contour_mask = cv2.erode(eroded_mask, kernel, iterations=1)
@@ -254,29 +254,41 @@ class WebcamApp:
                     # Konversi citra berwarna (3 channel) menjadi grayscale
                     segmented_image_gray = cv2.cvtColor(segmented_image, cv2.COLOR_RGBA2GRAY)
                     cv2.imwrite('6_segmented_image_gray.png', segmented_image_gray)
-                    # Buat lapisan blur dari gambar grayscale untuk efek glow
-                    blurred_gray = cv2.GaussianBlur(segmented_image_gray, (15, 15), 0)
+                    # Menggunakan Gaussian Blur sebelum deteksi tepi
 
-                    # Buat lapisan blur untuk efek inner glow
-                    blurred = cv2.GaussianBlur(segmented_image_gray, (15, 15), 0)
-
-                    # Tingkatkan kecerahan hanya pada bagian blur (inner glow)
-                    brightness_increase = 50  # Sesuaikan nilai ini sesuai kebutuhan
-                    brighter_glow = cv2.add(blurred, brightness_increase)
-
-                    # Gabungkan gambar asli dengan versi brighter inner glow menggunakan pengaturan alpha
-                    alpha = 0.5  # intensitas inner glow (atur antara 0-1)
-                    inner_glow = cv2.addWeighted(segmented_image_gray, 1 - alpha, brighter_glow, alpha, 0)
-
-                    # Simpan hasilnya
-                    cv2.imwrite('6_segmented_image_inner_glow_bright.png', inner_glow)
                     inner_segmented_gray = cv2.cvtColor(result_with_inner_contour, cv2.COLOR_RGBA2GRAY)
                     cv2.imwrite('Inner_Segmented_Gray.png', inner_segmented_gray)
-                    # Apply Gaussian blur
-                    blurred_inner_segmented_gray = cv2.GaussianBlur(inner_segmented_gray, (1, 1), 0)
+                    
+                    # Tentukan rentang warna hitam (minyak)
+                    lower_black = np.array([5], dtype=np.uint8)
+                    upper_black = np.array([40], dtype=np.uint8)
 
-                    # Save the blurred grayscale image
-                    cv2.imwrite('Inner_Segmented_Gray_Blurred.png', blurred_inner_segmented_gray)
+                    # Buat mask untuk warna hitam
+                    black_mask = cv2.inRange(inner_segmented_gray, lower_black, upper_black)
+                    
+                    # Deteksi tepi dengan Canny untuk menemukan tulang daun
+                    edges = cv2.Canny(inner_segmented_gray, 50, 150)
+                    cv2.imwrite('edges.png', edges)
+
+                    # Dilatasi untuk mempertebal tepi tulang daun
+                    kernel = np.ones((1, 1), np.uint8)
+                    dilated_edges = cv2.dilate(edges, kernel, iterations=1)
+                    cv2.imwrite('dilated_edges.png', dilated_edges)
+
+                    # Buat mask tulang daun
+                    leaf_veins_mask = cv2.bitwise_not(dilated_edges)
+                    cv2.imwrite('leaf_veins_mask.png', leaf_veins_mask)
+
+                    # Terapkan leaf_veins_mask pada black_mask agar tulang daun tidak ikut terdeteksi sebagai minyak
+                    filtered_black_mask = cv2.bitwise_and(black_mask, black_mask, mask=leaf_veins_mask)
+                    black_pixels_filtered = cv2.countNonZero(filtered_black_mask)
+
+                    # Ganti piksel hitam (minyak) dengan warna kuning pada gambar BGR
+                    filtered_black_mask_bgr = cv2.cvtColor(filtered_black_mask, cv2.COLOR_GRAY2BGR)
+                    filtered_black_mask_bgr[np.where((filtered_black_mask_bgr == [255, 255, 255]).all(axis=2))] = [0, 255, 255]
+                    cv2.imwrite('filtered_blackMaskBgr.png', filtered_black_mask_bgr)
+
+                    print("Jumlah piksel hitam setelah filter tulang daun:", black_pixels_filtered)
 
                     if contours:
                         largest_contour = max(contours, key=cv2.contourArea)
@@ -388,38 +400,6 @@ class WebcamApp:
 
                     # Simpan gambar hasil gabungan dari deteksi kontur dan lubang
                     cv2.imwrite('9_combined_output.png', combined_image)
-
-
-                    # Tentukan rentang warna hitam (minyak)
-                    lower_black = np.array([1], dtype=np.uint8)
-                    upper_black = np.array([36], dtype=np.uint8)
-
-                    # Buat mask untuk warna hitam
-                    black_mask = cv2.inRange(blurred_inner_segmented_gray, lower_black, upper_black)
-                    black_pixels = cv2.countNonZero(black_mask)
-
-                    # Tentukan nilai smoothing factor alpha (nilai antara 0 dan 1, lebih kecil = lebih halus)
-                    alpha = 0.1
-
-                    # Variabel untuk menyimpan nilai black_pixels yang telah dinormalisasi
-                    smoothed_black_pixels = 0
-
-                    # Hitung jumlah piksel hitam
-                    black_pixels = cv2.countNonZero(black_mask)
-
-                    # Terapkan exponential smoothing
-                    smoothed_black_pixels = alpha * black_pixels + (1 - alpha) * smoothed_black_pixels
-                    # Membulatkan nilai smoothed_black_pixels ke bilangan bulat
-                    smoothed_blackpixels = int(round(smoothed_black_pixels))
-                    print(f"Smoothed black pixels: {smoothed_blackpixels}")
-
-
-                    # Ganti piksel hitam dengan warna kuning pada gambar BGR
-                    black_mask_bgr = cv2.cvtColor(black_mask, cv2.COLOR_GRAY2BGR)
-                    black_mask_bgr[np.where((black_mask_bgr == [255, 255, 255]).all(axis=2))] = [0, 0, 255]
-                    cv2.imwrite('blackMaskBgr.png', black_mask_bgr)
-                    print(black_pixels)
-
                     # Hitung jumlah piksel untuk setiap nilai intensitas dari 0 hingga 255
                     pixel_counts = np.bincount(segmented_image_gray.flatten(), minlength=256)
 
@@ -431,13 +411,13 @@ class WebcamApp:
                     range_mask = cv2.inRange(segmented_image_gray, lower_range, upper_range)
                     range_pixels = cv2.countNonZero(range_mask)
 
-                    if black_pixels == 0:
+                    if black_pixels_filtered == 0:
                         oil_category = 0
-                    elif black_pixels <= 1500:
+                    elif black_pixels_filtered <= 1850:
                         oil_category = 2
-                    elif 1500 <= black_pixels <= 2100:
+                    elif 1850 <= black_pixels_filtered <= 2650:
                         oil_category = 3
-                    elif black_pixels > 2200:
+                    elif black_pixels_filtered > 2650:
                         oil_category = 4
                     else:
                         oil_category = 0
@@ -476,7 +456,7 @@ class WebcamApp:
                     
                     self.label_dimensions.config(
                         # \nWarna  :  {dominant_value}\nFrekwensi :  {domi`nant_frequency}\nKerusakan :  {percentageKerusakan:.2f}%
-                        text=f"Grade:\n {kualitas} | {color_category} | {Kerusakan} | M{oil_category} \nPanjang Asli: {panjang:.1f}\nPanjang: {pixel_panjang}\nLebar: {pixel_lebar}\nHue : {average_hue:.1f}\nSaturation : {average_saturation:.1f}\nValue : {average_value:.1f}\nPixel: {black_pixels}\nC: {compactness:1f}\nT:{threshold_rusak}"
+                        text=f"Grade:\n {kualitas} | {color_category} | {Kerusakan} | M{oil_category} \nPanjang Asli: {panjang:.1f}\nPanjang: {pixel_panjang}\nLebar: {pixel_lebar}\nHue : {average_hue:.1f}\nSaturation : {average_saturation:.1f}\nValue : {average_value:.1f}\nPixel: {black_pixels_filtered}\nC: {compactness:1f}\nT:{threshold_rusak}"
 
                     )
               
