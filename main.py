@@ -126,63 +126,27 @@ class WebcamApp:
             print("No image to save!")
 
 
-    def process_image(self, path):
+    def process_image(self, path, contrast_factor=1.0):
         if os.path.exists(path):
-            # Membaca gambar dari path yang diberikan
-            image = mpimg.imread(path)
+            # Membaca gambar dari path yang diberikan menggunakan OpenCV
+            image = cv2.imread(path)
 
             if image is None:
                 print("Gambar tidak ditemukan di path:", path)
                 return
 
+            # Simpan gambar asli
             cv2.imwrite("Original_Image.png", image)
+            print("Gambar berhasil dibaca dan disimpan sebagai 'Original_Image.png'.")
+
+            # Penyesuaian kontras
+            adjusted_image = self.adjust_contrast(image, contrast_factor)
+            
+            # Simpan hasil gambar dengan kontras yang disesuaikan
+            cv2.imwrite("Adjusted_Contrast_Image.png", adjusted_image)
+            print("Gambar dengan kontras disesuaikan disimpan sebagai 'Adjusted_Contrast_Image.png'")
+
             # Konversi gambar dari BGR ke HSV
-            hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-
-            # Tentukan ukuran area untuk ekstraksi nilai (50x50)
-            area_size = 175
-
-            # Tentukan posisi untuk mengambil area 50x50 (misalnya di pusat gambar)
-            height, width, _ = hsv_image.shape
-            start_x = (width // 2) - (area_size // 2)
-            start_y = (height // 2) - (area_size // 2)
-
-            # Ekstraksi area 50x50
-            hsv_area = hsv_image[start_y:start_y + area_size, start_x:start_x + area_size]
-
-            # Pisahkan channel Hue, Saturation, dan Value
-            hue_channel = hsv_area[:, :, 0]  # Channel Hue
-            saturation_channel = hsv_area[:, :, 1]  # Channel Saturation
-            value_channel = hsv_area[:, :, 2]  # Channel Value
-
-            # Hitung jumlah total data Hue, Saturation, dan Value dalam area 50x50
-            sum_hue = np.sum(hue_channel)
-            sum_saturation = np.sum(saturation_channel)
-            sum_value = np.sum(value_channel)
-
-            # Menghitung rata-rata nilai Hue, Saturation, dan Value
-            average_hue = sum_hue / (area_size * area_size)  # Karena area 50x50, jumlah total piksel adalah 2500
-            average_saturation = sum_saturation / (area_size * area_size)
-            average_value = sum_value / (area_size * area_size)
-
-            # Menyimpan area 50x50 dan gambar HSV
-            cv2.imwrite("hsv_area_50x50.png", hsv_area)
-
-            # Debug print statements x 
-            print(f"Average Hue: {average_hue}")
-            print(f"Average Saturation: {average_saturation}")
-            print(f"Average Value: {average_value}")
-                        # Mengirimkan nilai rata-rata Hue ke Arduino
-
-            normalisasiHue = average_hue / 360
-            normalisasiSaturation = average_saturation / 255
-            normalisasiValue = average_value / 255
-            penyetaraanHue = normalisasiHue + 0.01 * ((0.75 - normalisasiValue) / normalisasiValue)
-            penyetaraanSaturation = normalisasiSaturation * (0.75 * normalisasiValue)
-
-            print(f"Penyetaraan Hue: {penyetaraanHue:.3f}")
-            print(f"Penyetaraan Saturation: {penyetaraanSaturation:.3f}")
-
                  # Konversi gambar ke Grayscale
             img_gray = cv2.cvtColor(image, cv2.COLOR_RGBA2GRAY)
 
@@ -216,7 +180,7 @@ class WebcamApp:
                 cv2.drawContours(mask, [adjusted_contour], -1, 255, thickness=cv2.FILLED)
                 # Segmentasikan objek dengan masker
                 segmented_image = cv2.bitwise_and(cropped_image, cropped_image, mask=mask)
-                cv2.imwrite('segmentedd.png', segmented_image)
+                cv2.imwrite('2 Image Segmented.png', segmented_image)
 
                 # Temukan kontur pada gambar masker
                 contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -248,16 +212,16 @@ class WebcamApp:
                 result_with_inner_contour = cv2.bitwise_and(cropped_image, cropped_image, mask=inner_mask)
 
                 # Simpan hasil akhir dengan kontur di dalam kontur
-                cv2.imwrite('result_with_inner_contour.png', result_with_inner_contour)
+                cv2.imwrite('3 result_with_inner_contour.png', result_with_inner_contour)
 
                 if len(segmented_image.shape) == 3:
                     # Konversi citra berwarna (3 channel) menjadi grayscale
                     segmented_image_gray = cv2.cvtColor(segmented_image, cv2.COLOR_RGBA2GRAY)
-                    cv2.imwrite('6_segmented_image_gray.png', segmented_image_gray)
+                    cv2.imwrite('4 segmented_image_gray.png', segmented_image_gray)
                     # Menggunakan Gaussian Blur sebelum deteksi tepi
 
                     inner_segmented_gray = cv2.cvtColor(result_with_inner_contour, cv2.COLOR_RGBA2GRAY)
-                    cv2.imwrite('Inner_Segmented_Gray.png', inner_segmented_gray)
+                    cv2.imwrite('5 Inner_Segmented_Gray.png', inner_segmented_gray)
                     
                     # Tentukan rentang warna hitam (minyak)
                     lower_black = np.array([1], dtype=np.uint8)
@@ -268,16 +232,16 @@ class WebcamApp:
                     
                     # Deteksi tepi dengan Canny untuk menemukan tulang daun
                     edges = cv2.Canny(inner_segmented_gray, 50, 150)
-                    cv2.imwrite('edges.png', edges)
+                    cv2.imwrite('6 edges.png', edges)
 
                     # Dilatasi untuk mempertebal tepi tulang daun
                     kernel = np.ones((1, 3), np.uint8)
                     dilated_edges = cv2.dilate(edges, kernel, iterations=1)
-                    cv2.imwrite('dilated_edges.png', dilated_edges)
+                    cv2.imwrite('7 dilated_edges.png', dilated_edges)
 
                     # Buat mask tulang daun
                     leaf_veins_mask = cv2.bitwise_not(dilated_edges)
-                    cv2.imwrite('leaf_veins_mask.png', leaf_veins_mask)
+                    cv2.imwrite('8 leaf_veins_mask.png', leaf_veins_mask)
 
                     # Terapkan leaf_veins_mask pada black_mask agar tulang daun tidak ikut terdeteksi sebagai minyak
                     filtered_black_mask = cv2.bitwise_and(black_mask, black_mask, mask=leaf_veins_mask)
@@ -286,199 +250,34 @@ class WebcamApp:
                     # Ganti piksel hitam (minyak) dengan warna kuning pada gambar BGR
                     filtered_black_mask_bgr = cv2.cvtColor(filtered_black_mask, cv2.COLOR_GRAY2BGR)
                     filtered_black_mask_bgr[np.where((filtered_black_mask_bgr == [255, 255, 255]).all(axis=2))] = [0, 255, 255]
-                    cv2.imwrite('filtered_blackMaskBgr.png', filtered_black_mask_bgr)
+                    cv2.imwrite('9 filtered_blackMaskBgr.png', filtered_black_mask_bgr)
 
                     print("Jumlah piksel hitam setelah filter tulang daun:", black_pixels_filtered)
-
-                    if contours:
-                        largest_contour = max(contours, key=cv2.contourArea)
-                        
-                        # Menghitung perimeter, area, dan compactness hanya jika ada kontur
-                        perimeter = cv2.arcLength(largest_contour, True)  # Panjang perimeter kontur
-                        area = cv2.contourArea(largest_contour)  # Luas area kontur
-                        compactness = (perimeter ** 2) / (4 * np.pi * area)  # Menghitung compactness (rasio keliling & area)
-
-                        # Gambar kontur pada gambar asli (atau gambar grayscale)
-                        image_with_contours = cv2.cvtColor(segmented_image_gray, cv2.COLOR_GRAY2BGR)  # Pastikan gambar menjadi 3 channel untuk warna
-                        cv2.drawContours(image_with_contours, [largest_contour], -1, (0, 255, 0), 2)  # Gambar kontur pada gambar
-
-                        # Tambahkan teks informasi perimeter, area, dan compactness
-                        font = cv2.FONT_HERSHEY_SIMPLEX
-                        font_scale = 0.5
-                        font_color = (255, 255, 255)  # Putih
-                        thickness = 1
-
-                        # Tampilkan perimeter, area, dan compactness di gambar
-                        text_perimeter = f'Perimeter: {perimeter:.2f}'
-                        text_area = f'Area: {area:.2f}'
-                        text_compactness = f'Compactness: {compactness:.2f}'
-
-                        cv2.putText(image_with_contours, text_perimeter, (10, 30), font, font_scale, font_color, thickness)
-                        cv2.putText(image_with_contours, text_area, (10, 50), font, font_scale, font_color, thickness)
-                        cv2.putText(image_with_contours, text_compactness, (10, 70), font, font_scale, font_color, thickness)
-
-                        # Simpan gambar dengan informasi tepi dan kekasaran
-                        cv2.imwrite('output_edge_detection_with_info.png', image_with_contours)
-
-                    else:
-                        print("Tidak ditemukan kontur pada gambar.")
-
-                    # Simpan gambar yang menunjukkan hasil deteksi tepi daun
-                    result_contour_image = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
-                    cv2.drawContours(result_contour_image, [largest_contour], -1, (0, 255, 0), 2)
-                    cv2.imwrite('7_contour_detection_result.png', result_contour_image)
-
-                    # Proses 5: Tentukan rentang warna putih untuk deteksi area dalam daun
-                    lower_white = np.array([150], dtype=np.uint8)
-                    upper_white = np.array([255], dtype=np.uint8)
-                    white_mask = cv2.inRange(segmented_image_gray, lower_white, upper_white)
-                    white_pixels = cv2.countNonZero(white_mask)
-
-                    # Cari kontur di white_mask
-                    contours, _ = cv2.findContours(white_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-                    white_mask_bgr = cv2.cvtColor(white_mask, cv2.COLOR_GRAY2BGR)
-                    white_mask_bgr[np.where((white_mask_bgr == [255, 255, 255]).all(axis=2))] = [0, 0, 255]
-
-                    jumlah_bounding_box = 0
-                    for contour in contours:
-                        x, y, w, h = cv2.boundingRect(contour)
-
-                        # Hitung ukuran dalam cm
-                        lebar_cm = w * 0.075
-                                                                                                                                                                                                                                                                                                                                                                                                                    
-                        tinggi_cm = h * 0.081
-
-                        if lebar_cm > 0.2 and tinggi_cm > 0.2:
-                            cv2.rectangle(white_mask_bgr, (x, y), (x + w, y + h), (0, 255, 0), 2)
-
-                            font = cv2.FONT_HERSHEY_SIMPLEX
-                            font_scale = 0.5
-                            font_color = (255, 255, 255)
-                            thickness = 1
-
-                            text_lebar = f'L: {lebar_cm:.2f} cm'
-                            cv2.putText(white_mask_bgr, text_lebar, (x, y - 10), font, font_scale, font_color, thickness)
-
-                            text_tinggi = f'T: {tinggi_cm:.2f} cm'
-                            cv2.putText(white_mask_bgr, text_tinggi, (x + w + 10, y + h // 2), font, font_scale, font_color, thickness)
-
-                            print(f'Bounding Box {jumlah_bounding_box + 1}: Lebar = {lebar_cm:.2f} cm, Tinggi = {tinggi_cm:.2f} cm')
-                            jumlah_bounding_box += 1
-                        else:
-                            print(f'Kontur diabaikan: Lebar = {lebar_cm:.2f} cm, Tinggi = {tinggi_cm:.2f} cm (di bawah threshold 0.5 cm)')
-
-                    # Simpan gambar hasil deteksi lubang pada daun
-                    cv2.imwrite('8_whiteMaskBgr.png', white_mask_bgr)
-
-                    # Ambang batas kekasaran
-                    threshold_rusak = 2  # Nilai compactness > 1.2 dapat dianggap rusak
-                    print("Compacness: ", compactness)
-                    print("Thickness: ", threshold_rusak)
-
-                    if jumlah_bounding_box >= 1 and compactness <= threshold_rusak:
-                        Kerusakan = "Rambing"
-                    elif compactness > threshold_rusak and jumlah_bounding_box == 0:
-                        Kerusakan = "Rambing"
-                    elif compactness > threshold_rusak and jumlah_bounding_box >= 1:
-                        Kerusakan = "Rambing"
-                    elif jumlah_bounding_box == 0 and compactness <= threshold_rusak:
-                        Kerusakan = "Utuh"
-                    else:
-                        Kerusakan = "Utuh"
-
-                    # Hitung jumlah piksel putih dan jumlah bounding box
-                    white_pixels = cv2.countNonZero(white_mask)
-                    print(f'Jumlah piksel putih di dalam daun: {white_pixels}')
-                    print(f'Jumlah bounding box (lubang): {jumlah_bounding_box}')
-
-                    # Gabungkan gambar BGR dengan mask kuning dan bounding box hijau
-                    segmented_image_bgr = cv2.cvtColor(segmented_image_gray, cv2.COLOR_GRAY2BGR)
-                    combined_image = cv2.addWeighted(segmented_image_bgr, 0.7, white_mask_bgr, 0.3, 0)
-                    cv2.imwrite('gray_image.png', segmented_image_gray)
-
-                    # Simpan gambar hasil gabungan dari deteksi kontur dan lubang
-                    cv2.imwrite('9_combined_output.png', combined_image)
-                    # Hitung jumlah piksel untuk setiap nilai intensitas dari 0 hingga 255
-                    pixel_counts = np.bincount(segmented_image_gray.flatten(), minlength=256)
-
-                    # Tentukan rentang warna dari 1 hingga 255
-                    lower_range = np.array([1], dtype=np.uint8)
-                    upper_range = np.array([255], dtype=np.uint8)
-
-                    # Buat mask untuk rentang warna
-                    range_mask = cv2.inRange(segmented_image_gray, lower_range, upper_range)
-                    range_pixels = cv2.countNonZero(range_mask)
-
-                    if average_hue <= 101.7:
-                        color_category = "BB"
-                    elif 101.7 < average_hue <= 103:
-                        if average_value <= 93:
-                            color_category = "B"
-                        else:
-                            color_category = "MM"
-                    elif 103 < average_hue <= 104.2:
-                        if average_value <=93:
-                            color_category = "B"
-                        elif average_value >= 99:
-                            color_category = "M"
-                        else: 
-                            color_category = "MM"
-                    elif 104.2 < average_hue <= 105.1:
-                        if average_value <= 92.3:
-                            color_category = "B"
-                        else:  # average_value > 122
-                            color_category = "M"
-                    elif average_hue > 105.1:
-                        color_category = "M"
-                    else:
-                        color_category = "Tidak Terdefinisi"
-
-                    if black_pixels_filtered <= 300:
-                        oil_category = 2
-                    elif 300 < black_pixels_filtered <= 600:
-                        oil_category = 3
-                    else:
-                        oil_category = 4
-
-                    # if black_pixels_filtered == 0 or average_hue < 78:
-                    #     oil_category = 0
-                    # elif average_hue <= 101.7:
-                    #     oil_category = 2
-                    # elif color_category == "M":
-                    #     oil_category = 4
-                    # elif black_pixels_filtered <= 1850:
-                    #     oil_category = 2
-                    # elif 1850 <= black_pixels_filtered <= 2650:
-                    #     oil_category = 3
-                    # elif black_pixels_filtered > 2650:
-                    #     oil_category = 4
-                    # else:
-                    #     oil_category = 0
-
-
 
                     PanjangDaun = max(panjang, 0)
                     # Mengirim data ke Arduino
                     # Kategori warna berdasarkan average_hue dan average_value
 
                     # Format string yang ingin dikirim
-                    grading = f"{kualitas}|{color_category}|{Kerusakan}|M{oil_category}" 
-                    self.send_hue_and_color_category(oil_category, grading)
-  # Tampilkan nilai hue dan kategori warna
-                    
+                    grading = f"{kualitas}" 
+                    self.send_hue_and_color_category(kualitas, grading)                    
                     self.label_dimensions.config(
                         # \nWarna  :  {dominant_value}\nFrekwensi :  {domi`nant_frequency}\nKerusakan :  {percentageKerusakan:.2f}%
-                        text=f"Grade:\n {kualitas} | {color_category} | {Kerusakan} | M{oil_category} \nPanjang Asli: {panjang:.1f}\nPanjang: {pixel_panjang}\nLebar: {pixel_lebar}\nHue : {average_hue:.1f}\nSaturation : {average_saturation:.1f}\nValue : {average_value:.1f}\nPixel: {black_pixels_filtered}\nC: {compactness:1f}\nT:{threshold_rusak}"
+                        text=f"Grade:\n {kualitas} \nPanjang Asli: {panjang:.1f}\nPanjang: {pixel_panjang}\nLebar: {pixel_lebar}\nPixel: {black_pixels_filtered}"
 
                     )
-              
                 else: 
                     print("Segmented Not Found")
             else:
                 print("Contour Not Found")
         else:
             print("Image path not found.")
+
+    
+    def adjust_contrast(self, image, factor):
+        # Mengonversi gambar ke format float32 agar tidak terjadi overflow
+        adjusted = cv2.convertScaleAbs(image, alpha=factor, beta=0)
+        return adjusted
 
     def send_hue_and_color_category(self, oil, color_category):
         data = f"{oil},{color_category}\n"
