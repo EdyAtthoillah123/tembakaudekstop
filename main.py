@@ -329,6 +329,7 @@ class WebcamApp:
                     white_mask_bgr[np.where((white_mask_bgr == [255, 255, 255]).all(axis=2))] = [0, 0, 255]
 
                     jumlah_bounding_box = 0
+                    jumlah_bounding_box2 = 0
                     for contour in contours:
                         x, y, w, h = cv2.boundingRect(contour)
 
@@ -356,25 +357,49 @@ class WebcamApp:
                         else:
                             print(f'Kontur diabaikan: Lebar = {lebar_cm:.2f} cm, Tinggi = {tinggi_cm:.2f} cm (di bawah threshold 0.5 cm)')
 
+                        if lebar_cm > 1.4 or tinggi_cm > 1.4:
+                            cv2.rectangle(white_mask_bgr, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+                            font = cv2.FONT_HERSHEY_SIMPLEX
+                            font_scale = 0.5
+                            font_color = (0, 0, 255)
+                            thickness = 1
+
+                            text_lebar = f'L: {lebar_cm:.2f} cm'
+                            cv2.putText(white_mask_bgr, text_lebar, (x, y - 10), font, font_scale, font_color, thickness)
+
+                            text_tinggi = f'T: {tinggi_cm:.2f} cm'
+                            cv2.putText(white_mask_bgr, text_tinggi, (x + w + 10, y + h // 2), font, font_scale, font_color, thickness)
+
+                            print(f'Bounding Box {jumlah_bounding_box2 + 1}: Lebar = {lebar_cm:.2f} cm, Tinggi = {tinggi_cm:.2f} cm')
+                            jumlah_bounding_box2 += 1
+                        else:
+                            print(f'Kontur diabaikan: Lebar = {lebar_cm:.2f} cm, Tinggi = {tinggi_cm:.2f} cm (di bawah threshold 0.5 cm)')
+
                     # Simpan gambar hasil deteksi lubang pada daun
                     cv2.imwrite('8_whiteMaskBgr.png', white_mask_bgr)
 
                     # Ambang batas kekasaran
-                    threshold_rusak = 2  # Nilai compactness > 1.2 dapat dianggap rusak
+                    threshold_rusak = 2.25  # Nilai compactness > 1.2 dapat dianggap rusak
                     print("Compacness: ", compactness)
                     print("Thickness: ", threshold_rusak)
 
-                    if jumlah_bounding_box >= 1 and compactness <= threshold_rusak:
-                        Kerusakan = "Rambing"
-                    elif compactness > threshold_rusak and jumlah_bounding_box == 0:
-                        Kerusakan = "Rambing"
-                    elif compactness > threshold_rusak and jumlah_bounding_box >= 1:
-                        Kerusakan = "Rambing"
-                    elif jumlah_bounding_box == 0 and compactness <= threshold_rusak:
+                    if jumlah_bounding_box == 0 and compactness <= threshold_rusak:
                         Kerusakan = "Utuh"
+                    elif 0 < jumlah_bounding_box <= 4 and compactness <= threshold_rusak and jumlah_bounding_box2 == 0:
+                        Kerusakan = "r"
+                    elif compactness > threshold_rusak and jumlah_bounding_box == 0 and jumlah_bounding_box2 == 0:
+                        Kerusakan = "r"
+                    elif jumlah_bounding_box >= 7:
+                        Kerusakan = "R1"
+                    elif jumlah_bounding_box2 >= 1:
+                        Kerusakan = "R1"
+                    elif compactness > threshold_rusak and (jumlah_bounding_box >= 5 or jumlah_bounding_box2 >= 1):
+                        Kerusakan = "R1"
+                    elif compactness > threshold_rusak:
+                        Kerusakan = "R1"
                     else:
-                        Kerusakan = "Utuh"
-                    
+                        Kerusakan = "R1"
 
                     # Hitung jumlah piksel putih dan jumlah bounding box
                     white_pixels = cv2.countNonZero(white_mask)
