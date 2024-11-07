@@ -198,7 +198,7 @@ class WebcamApp:
                 pixel_panjang = w
                 pixel_lebar = h
                 # Hitung dimensi
-                panjang = 0.0968 * pixel_panjang - 3.4385
+                panjang = 0.0895 * pixel_panjang - 3.1795
 
                 # Tentukan kualitas daun
                 kualitas = self.determine_leaf_quality(panjang)
@@ -260,8 +260,8 @@ class WebcamApp:
                     cv2.imwrite('Inner_Segmented_Gray.png', inner_segmented_gray)
                     
                     # Tentukan rentang warna hitam (minyak)
-                    lower_black = np.array([5], dtype=np.uint8)
-                    upper_black = np.array([40], dtype=np.uint8)
+                    lower_black = np.array([1], dtype=np.uint8)
+                    upper_black = np.array([32], dtype=np.uint8)
 
                     # Buat mask untuk warna hitam
                     black_mask = cv2.inRange(inner_segmented_gray, lower_black, upper_black)
@@ -271,7 +271,7 @@ class WebcamApp:
                     cv2.imwrite('edges.png', edges)
 
                     # Dilatasi untuk mempertebal tepi tulang daun
-                    kernel = np.ones((1, 1), np.uint8)
+                    kernel = np.ones((1, 3), np.uint8)
                     dilated_edges = cv2.dilate(edges, kernel, iterations=1)
                     cv2.imwrite('dilated_edges.png', dilated_edges)
 
@@ -386,7 +386,6 @@ class WebcamApp:
                         Kerusakan = "Utuh"
                     else:
                         Kerusakan = "Utuh"
-                    
 
                     # Hitung jumlah piksel putih dan jumlah bounding box
                     white_pixels = cv2.countNonZero(white_mask)
@@ -411,38 +410,52 @@ class WebcamApp:
                     range_mask = cv2.inRange(segmented_image_gray, lower_range, upper_range)
                     range_pixels = cv2.countNonZero(range_mask)
 
-                    if black_pixels_filtered == 0:
-                        oil_category = 0
-                    elif black_pixels_filtered <= 1850:
-                        oil_category = 2
-                    elif 1850 <= black_pixels_filtered <= 2650:
-                        oil_category = 3
-                    elif black_pixels_filtered > 2650:
-                        oil_category = 4
-                    else:
-                        oil_category = 0
-
-                    if average_hue <= 101.4:
+                    if average_hue <= 101.7:
                         color_category = "BB"
-                    elif 101.4 < average_hue <= 102.7:
-                        if average_value <= 91:
+                    elif 101.7 < average_hue <= 103:
+                        if average_value <= 93:
                             color_category = "B"
                         else:
                             color_category = "MM"
-                    elif 102.7 < average_hue <= 103.9:
-                        if average_value <=91:
+                    elif 103 < average_hue <= 104.2:
+                        if average_value <=93:
                             color_category = "B"
+                        elif average_value >= 99:
+                            color_category = "M"
                         else: 
                             color_category = "MM"
-                    elif 103.9 < average_hue <= 104.8:
-                        if average_value <= 90.3:
+                    elif 104.2 < average_hue <= 105.1:
+                        if average_value <= 92.3:
                             color_category = "B"
                         else:  # average_value > 122
                             color_category = "M"
-                    elif average_hue > 104.8:
+                    elif average_hue > 105.1:
                         color_category = "M"
                     else:
                         color_category = "Tidak Terdefinisi"
+
+                    if black_pixels_filtered <= 300:
+                        oil_category = 2
+                    elif 300 < black_pixels_filtered <= 600:
+                        oil_category = 3
+                    else:
+                        oil_category = 4
+
+                    # if black_pixels_filtered == 0 or average_hue < 78:
+                    #     oil_category = 0
+                    # elif average_hue <= 101.7:
+                    #     oil_category = 2
+                    # elif color_category == "M":
+                    #     oil_category = 4
+                    # elif black_pixels_filtered <= 1850:
+                    #     oil_category = 2
+                    # elif 1850 <= black_pixels_filtered <= 2650:
+                    #     oil_category = 3
+                    # elif black_pixels_filtered > 2650:
+                    #     oil_category = 4
+                    # else:
+                    #     oil_category = 0
+
 
 
                     PanjangDaun = max(panjang, 0)
@@ -451,7 +464,7 @@ class WebcamApp:
 
                     # Format string yang ingin dikirim
                     grading = f"{kualitas}|{color_category}|{Kerusakan}|M{oil_category}" 
-                    self.send_hue_and_color_category(average_hue, grading)
+                    self.send_hue_and_color_category(oil_category, grading)
   # Tampilkan nilai hue dan kategori warna
                     
                     self.label_dimensions.config(
@@ -467,8 +480,8 @@ class WebcamApp:
         else:
             print("Image path not found.")
 
-    def send_hue_and_color_category(self, hue_value, color_category):
-        data = f"{hue_value},{color_category}\n"
+    def send_hue_and_color_category(self, oil, color_category):
+        data = f"{oil},{color_category}\n"
         self.arduino.write(data.encode())  # Kirim data ke Arduino
         print(f"Data dikirim: {data.strip()}")
 
