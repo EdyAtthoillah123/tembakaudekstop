@@ -126,7 +126,7 @@ class WebcamApp:
             print("No image to save!")
 
 
-    def process_image(self, path, contrast_factor=1.0):
+    def process_image(self, path, contrast_factor=2.3):
         if os.path.exists(path):
             # Membaca gambar dari path yang diberikan menggunakan OpenCV
             image = cv2.imread(path)
@@ -136,19 +136,19 @@ class WebcamApp:
                 return
 
             # Simpan gambar asli
-            cv2.imwrite("Original_Image.png", image)
+            cv2.imwrite("1 Original_Image.png", image)
             print("Gambar berhasil dibaca dan disimpan sebagai 'Original_Image.png'.")
 
             # Penyesuaian kontras
             adjusted_image = self.adjust_contrast(image, contrast_factor)
             
             # Simpan hasil gambar dengan kontras yang disesuaikan
-            cv2.imwrite("Adjusted_Contrast_Image.png", adjusted_image)
+            cv2.imwrite("2 Adjusted_Contrast_Image.png", adjusted_image)
             print("Gambar dengan kontras disesuaikan disimpan sebagai 'Adjusted_Contrast_Image.png'")
 
             # Konversi gambar dari BGR ke HSV
                  # Konversi gambar ke Grayscale
-            img_gray = cv2.cvtColor(image, cv2.COLOR_RGBA2GRAY)
+            img_gray = cv2.cvtColor(adjusted_image, cv2.COLOR_RGBA2GRAY)
 
             # Segmentasi Citra Menggunakan Thresholding
             _, thresh = cv2.threshold(img_gray, 128, 255, cv2.THRESH_BINARY_INV)
@@ -168,7 +168,7 @@ class WebcamApp:
                 kualitas = self.determine_leaf_quality(panjang)
 
                 # Deteksi kerusakan dan minyak 
-                cropped_image = image[y:y+h, x:x+w]
+                cropped_image = adjusted_image[y:y+h, x:x+w]
 
                 # Buat masker untuk citra yang dipotong
                 mask = np.zeros((h, w), dtype=np.uint8)
@@ -180,7 +180,7 @@ class WebcamApp:
                 cv2.drawContours(mask, [adjusted_contour], -1, 255, thickness=cv2.FILLED)
                 # Segmentasikan objek dengan masker
                 segmented_image = cv2.bitwise_and(cropped_image, cropped_image, mask=mask)
-                cv2.imwrite('2 Image Segmented.png', segmented_image)
+                cv2.imwrite('3 Image Segmented.png', segmented_image)
 
                 # Temukan kontur pada gambar masker
                 contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -212,36 +212,36 @@ class WebcamApp:
                 result_with_inner_contour = cv2.bitwise_and(cropped_image, cropped_image, mask=inner_mask)
 
                 # Simpan hasil akhir dengan kontur di dalam kontur
-                cv2.imwrite('3 result_with_inner_contour.png', result_with_inner_contour)
+                cv2.imwrite('4 result_with_inner_contour.png', result_with_inner_contour)
 
                 if len(segmented_image.shape) == 3:
                     # Konversi citra berwarna (3 channel) menjadi grayscale
                     segmented_image_gray = cv2.cvtColor(segmented_image, cv2.COLOR_RGBA2GRAY)
-                    cv2.imwrite('4 segmented_image_gray.png', segmented_image_gray)
+                    cv2.imwrite('5 segmented_image_gray.png', segmented_image_gray)
                     # Menggunakan Gaussian Blur sebelum deteksi tepi
 
                     inner_segmented_gray = cv2.cvtColor(result_with_inner_contour, cv2.COLOR_RGBA2GRAY)
-                    cv2.imwrite('5 Inner_Segmented_Gray.png', inner_segmented_gray)
+                    cv2.imwrite('6 Inner_Segmented_Gray.png', inner_segmented_gray)
                     
                     # Tentukan rentang warna hitam (minyak)
                     lower_black = np.array([1], dtype=np.uint8)
-                    upper_black = np.array([32], dtype=np.uint8)
+                    upper_black = np.array([48], dtype=np.uint8)
 
                     # Buat mask untuk warna hitam
                     black_mask = cv2.inRange(inner_segmented_gray, lower_black, upper_black)
                     
                     # Deteksi tepi dengan Canny untuk menemukan tulang daun
                     edges = cv2.Canny(inner_segmented_gray, 50, 150)
-                    cv2.imwrite('6 edges.png', edges)
+                    cv2.imwrite('7 edges.png', edges)
 
                     # Dilatasi untuk mempertebal tepi tulang daun
                     kernel = np.ones((1, 3), np.uint8)
                     dilated_edges = cv2.dilate(edges, kernel, iterations=1)
-                    cv2.imwrite('7 dilated_edges.png', dilated_edges)
+                    cv2.imwrite('8 dilated_edges.png', dilated_edges)
 
                     # Buat mask tulang daun
                     leaf_veins_mask = cv2.bitwise_not(dilated_edges)
-                    cv2.imwrite('8 leaf_veins_mask.png', leaf_veins_mask)
+                    cv2.imwrite('9 leaf_veins_mask.png', leaf_veins_mask)
 
                     # Terapkan leaf_veins_mask pada black_mask agar tulang daun tidak ikut terdeteksi sebagai minyak
                     filtered_black_mask = cv2.bitwise_and(black_mask, black_mask, mask=leaf_veins_mask)
@@ -250,7 +250,7 @@ class WebcamApp:
                     # Ganti piksel hitam (minyak) dengan warna kuning pada gambar BGR
                     filtered_black_mask_bgr = cv2.cvtColor(filtered_black_mask, cv2.COLOR_GRAY2BGR)
                     filtered_black_mask_bgr[np.where((filtered_black_mask_bgr == [255, 255, 255]).all(axis=2))] = [0, 255, 255]
-                    cv2.imwrite('9 filtered_blackMaskBgr.png', filtered_black_mask_bgr)
+                    cv2.imwrite('10 filtered_blackMaskBgr.png', filtered_black_mask_bgr)
 
                     print("Jumlah piksel hitam setelah filter tulang daun:", black_pixels_filtered)
 
@@ -278,6 +278,24 @@ class WebcamApp:
         # Mengonversi gambar ke format float32 agar tidak terjadi overflow
         adjusted = cv2.convertScaleAbs(image, alpha=factor, beta=0)
         return adjusted
+    
+    def adjust_hsv(self, image, hsv_values):
+        # Convert image from BGR to HSV
+        hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+        # Split into separate channels for H, S, and V
+        h, s, v = cv2.split(hsv_image)
+
+        # Scale the H, S, and V channels
+        h = cv2.multiply(h, hsv_values[0])
+        s = cv2.multiply(s, hsv_values[1])
+        v = cv2.multiply(v, hsv_values[2])
+
+        # Merge channels back and convert to BGR
+        hsv_image = cv2.merge([h, s, v])
+        hsv_adjusted_image = cv2.cvtColor(hsv_image, cv2.COLOR_HSV2BGR)
+        
+        return hsv_adjusted_image
 
     def send_hue_and_color_category(self, oil, color_category):
         data = f"{oil},{color_category}\n"
