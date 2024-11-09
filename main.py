@@ -198,7 +198,7 @@ class WebcamApp:
                 pixel_panjang = w
                 pixel_lebar = h
                 # Hitung dimensi
-                panjang = 0.0968 * pixel_panjang - 3.4385
+                panjang = 0.0895 * pixel_panjang - 3.1795
 
                 # Tentukan kualitas daun
                 kualitas = self.determine_leaf_quality(panjang)
@@ -456,8 +456,36 @@ class WebcamApp:
                     range_mask = cv2.inRange(segmented_image_gray, lower_range, upper_range)
                     range_pixels = cv2.countNonZero(range_mask)
 
+                    if average_hue <= 101.8:
+                        color_category = "BB"
+                    elif 101.8 < average_hue <= 103.1:
+                        if average_value <= 95:
+                            color_category = "B"
+                        else:
+                            color_category = "MM"
+                    elif 103.1 < average_hue <= 104.4:
+                        if average_value <=95:
+                            color_category = "B"
+                        if 95 < average_value <= 97.7:
+                            color_category = "MM"
+                        else: 
+                            color_category = "M"
+                    elif 104.4 < average_hue <= 105.2:
+                        if average_value <= 94.3:
+                            color_category = "B"
+                        else:  # average_value > 122
+                            color_category = "M"
+                    elif average_hue > 105.2:
+                        color_category = "M"
+                    else:
+                        color_category = "Tidak Terdefinisi"
+
                     if black_pixels == 0:
                         oil_category = 0
+                    elif average_hue <= 101.8:
+                        oil_category = 2
+                    elif average_hue <= 105.2:
+                        oil_category = 4
                     elif black_pixels <= 1500:
                         oil_category = 2
                     elif 1500 <= black_pixels <= 2100:
@@ -466,28 +494,6 @@ class WebcamApp:
                         oil_category = 4
                     else:
                         oil_category = 0
-
-                    if average_hue <= 101.4:
-                        color_category = "BB"
-                    elif 101.4 < average_hue <= 102.7:
-                        if average_value <= 91:
-                            color_category = "B"
-                        else:
-                            color_category = "MM"
-                    elif 102.7 < average_hue <= 103.9:
-                        if average_value <=91:
-                            color_category = "B"
-                        else: 
-                            color_category = "MM"
-                    elif 103.9 < average_hue <= 104.8:
-                        if average_value <= 90.3:
-                            color_category = "B"
-                        else:  # average_value > 122
-                            color_category = "M"
-                    elif average_hue > 104.8:
-                        color_category = "M"
-                    else:
-                        color_category = "Tidak Terdefinisi"
 
 
                     PanjangDaun = max(panjang, 0)
@@ -501,7 +507,7 @@ class WebcamApp:
                     
                     self.label_dimensions.config(
                         # \nWarna  :  {dominant_value}\nFrekwensi :  {domi`nant_frequency}\nKerusakan :  {percentageKerusakan:.2f}%
-                        text=f"Grade:\n {kualitas} | {color_category} | {Kerusakan} | M{oil_category} \nPanjang Asli: {panjang:.1f}\nPanjang: {pixel_panjang}\nLebar: {pixel_lebar}\nHue : {average_hue:.1f}\nSaturation : {average_saturation:.1f}\nValue : {average_value:.1f}\nPixel: {black_pixels}\nC: {compactness:1f}\nT:{threshold_rusak}"
+                        text=f"Grade:\n {kualitas} | {color_category} | {Kerusakan} | M{oil_category} \nPanjang Asli: {panjang:.1f}\nPanjang: {pixel_panjang}\nLebar: {pixel_lebar}\nHue : {average_hue:.1f}\nValue : {average_value:.1f}\nPixel: {black_pixels}\nC: {compactness:1f}\nT:{threshold_rusak}"
 
                     )
               
