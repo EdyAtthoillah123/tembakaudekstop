@@ -8,6 +8,7 @@ import time
 import matplotlib.image as mpimg
 import serial
 import time
+import mahotas
 
 try:
     arduino = serial.Serial('COM3', 9600, timeout=1)
@@ -128,27 +129,26 @@ class WebcamApp:
 
     def process_image(self, path, contrast_factor=1.0):
         if os.path.exists(path):
-            # Membaca gambar dari path yang diberikan menggunakan OpenCV
+            # Read the image from the provided path using OpenCV
             image = cv2.imread(path)
 
             if image is None:
-                print("Gambar tidak ditemukan di path:", path)
+                print("Image not found at path:", path)
                 return
 
-            # Simpan gambar asli
+            # Save the original image
             cv2.imwrite("Original_Image.png", image)
-            print("Gambar berhasil dibaca dan disimpan sebagai 'Original_Image.png'.")
+            print("Image successfully read and saved as 'Original_Image.png'.")
 
-            # Penyesuaian kontras
+            # Adjust contrast
             adjusted_image = self.adjust_contrast(image, contrast_factor)
-            
-            # Simpan hasil gambar dengan kontras yang disesuaikan
-            cv2.imwrite("Adjusted_Contrast_Image.png", adjusted_image)
-            print("Gambar dengan kontras disesuaikan disimpan sebagai 'Adjusted_Contrast_Image.png'")
 
-            # Konversi gambar dari BGR ke HSV
-                 # Konversi gambar ke Grayscale
-            img_gray = cv2.cvtColor(image, cv2.COLOR_RGBA2GRAY)
+            # Save the contrast-adjusted image
+            cv2.imwrite("Adjusted_Contrast_Image.png", adjusted_image)
+            print("Contrast-adjusted image saved as 'Adjusted_Contrast_Image.png'.")
+
+            # Convert image to Grayscale
+            img_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
             # Segmentasi Citra Menggunakan Thresholding
             _, thresh = cv2.threshold(img_gray, 128, 255, cv2.THRESH_BINARY_INV)
@@ -222,6 +222,11 @@ class WebcamApp:
 
                     inner_segmented_gray = cv2.cvtColor(result_with_inner_contour, cv2.COLOR_RGBA2GRAY)
                     cv2.imwrite('5 Inner_Segmented_Gray.png', inner_segmented_gray)
+
+                                # Calculate GLCM features and classify texture
+                    glcm_features = self.calculate_glcm(segmented_image_gray)
+                    texture = self.classify_texture(glcm_features)
+                    print(f"Leaf texture: {texture}")
                     
                     # Tentukan rentang warna hitam (minyak)
                     lower_black = np.array([1], dtype=np.uint8)
@@ -262,10 +267,9 @@ class WebcamApp:
                     grading = f"{kualitas}" 
                     self.send_hue_and_color_category(kualitas, grading)                    
                     self.label_dimensions.config(
-                        # \nWarna  :  {dominant_value}\nFrekwensi :  {domi`nant_frequency}\nKerusakan :  {percentageKerusakan:.2f}%
-                        text=f"Grade:\n {kualitas} \nPanjang Asli: {panjang:.1f}\nPanjang: {pixel_panjang}\nLebar: {pixel_lebar}\nPixel: {black_pixels_filtered}"
-
+                        text=f"Grade:\n {kualitas} \nPanjang Asli: {panjang:.1f}\nPanjang: {pixel_panjang}\nLebar: {pixel_lebar}\nPixel: {black_pixels_filtered}\nEntropy: {glcm_features[4]:.2f}\nTekstur: {texture}"
                     )
+
                 else: 
                     print("Segmented Not Found")
             else:
@@ -278,6 +282,33 @@ class WebcamApp:
         # Mengonversi gambar ke format float32 agar tidak terjadi overflow
         adjusted = cv2.convertScaleAbs(image, alpha=factor, beta=0)
         return adjusted
+
+    def calculate_glcm(self, image):
+        # Calculate GLCM features using Haralick method and take the mean across different directions
+        glcm = mahotas.features.haralick(image).mean(axis=0)
+        return glcm
+
+    def classify_texture(self, glcm_features):
+        # Print all GLCM feature values for debugging
+        print("GLCM Feature Values:", glcm_features)
+        
+        # Classification thresholds based on Entropy (glcm_features[4])
+        if glcm_features[4] <= 0.45:
+            texture = "Halus"  # Smooth texture
+        elif 0.45 < glcm_features[4] <= 0.475:
+            texture = "Sedang"  # Moderate texture
+        else:
+            texture = "Kasar"  # Rough texture
+
+        # Print the selected feature (Entropy) and the classification result
+        print(f"Entropy: {glcm_features[4]}, Classified as: {texture}")
+        return texture
+
+
+        # Print the selected feature (Entropy) and the classification result
+        print(f"Entropy: {glcm_features[4]}, Classified as: {texture}")
+        return texture
+
 
     def send_hue_and_color_category(self, oil, color_category):
         data = f"{oil},{color_category}\n"
@@ -303,7 +334,6 @@ class WebcamApp:
         else:
             print("Masuk kategori Filler")
             return "Filler"
-
 
 root = tk.Tk()
 app = WebcamApp(root)
