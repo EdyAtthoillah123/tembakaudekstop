@@ -495,8 +495,48 @@ class WebcamApp:
                     else:
                         oil_category = 0
 
+                    if average_hue < 100:
+                        if average_saturation <= 70 :
+                            if average_value >= 150: 
+                                ThicknessCategory =  "Tipis"
+                            else:
+                                ThicknessCategory = "Sedang"
+                        elif 70 < average_saturation <= 91:
+                            if average_value >= 155:
+                                ThicknessCategory = "Tipis"
+                            else: 
+                                ThicknessCategory = "Sedang"
+                        elif 91 < average_saturation <=200:
+                            if average_value >= 150: 
+                                ThicknessCategory =  "Sedang"
+                            else:
+                                ThicknessCategory = "Tebal"
+                        else :
+                            ThicknessCategory = "Tebal" 
+                    elif average_hue > 100:
+                        if average_saturation <= 70 :
+                            if average_value >= 150: 
+                                ThicknessCategory =  "Tipis"
+                            else:
+                                ThicknessCategory = "Sedang"
+                        elif 70 < average_saturation <= 91:
+                            if average_value >= 155:
+                                ThicknessCategory = "Tipis"
+                            else: 
+                                ThicknessCategory = "Sedang"
+                        elif 91 < average_saturation <=200:
+                            if average_value >= 150: 
+                                ThicknessCategory =  "Sedang"
+                            else:
+                                ThicknessCategory = "Tebal"
+                        else :
+                            ThicknessCategory = "Tebal" 
+                    else: 
+                        ThicknessCategory = "Belum"
 
-                    PanjangDaun = max(panjang, 0)
+
+
+                    PanjangDaun = max(panjang, 0)   
                     # Mengirim data ke Arduino
                     # Kategori warna berdasarkan average_hue dan average_value
 
@@ -507,7 +547,7 @@ class WebcamApp:
                     
                     self.label_dimensions.config(
                         # \nWarna  :  {dominant_value}\nFrekwensi :  {domi`nant_frequency}\nKerusakan :  {percentageKerusakan:.2f}%
-                        text=f"Grade:\n {kualitas} | {color_category} | {Kerusakan} | M{oil_category} \nPanjang Asli: {panjang:.1f}\nPanjang: {pixel_panjang}\nLebar: {pixel_lebar}\nHue : {average_hue:.1f}\nValue : {average_value:.1f}\nPixel: {black_pixels}\nC: {compactness:1f}\nT:{threshold_rusak}"
+                        text=f"Grade:\n {kualitas} | {color_category} | {Kerusakan} | M{oil_category} \nKetebalan: {ThicknessCategory}\nPanjang Asli: {panjang:.1f}\nPanjang: {pixel_panjang}\nLebar: {pixel_lebar}\nHue : {average_hue:.1f}\nSaturatin: : {average_saturation:.1f}\nValue : {average_value:.1f}\nPixel: {black_pixels}\nC: {compactness:1f}\nT:{threshold_rusak}"
 
                     )
               
