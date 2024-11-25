@@ -140,11 +140,56 @@ class WebcamApp:
             alpha = 4  # Faktor kontras (1.0 = tidak ada perubahan)
             beta = 0    # Faktor kecerahan (positif = lebih terang, negatif = lebih gelap)
             enhancedImage = cv2.convertScaleAbs(originalImage, alpha=alpha, beta=beta)
+            alphaMedium = 3  # Faktor kontras (1.0 = tidak ada perubahan)
+            betaMEdium = 0    # Faktor kecerahan (positif = lebih terang, negatif = lebih gelap)
+            enhancedImageMedium = cv2.convertScaleAbs(originalImage, alpha=alphaMedium, beta=betaMEdium)
 
             # Menyimpan hasil gambar
-            cv2.imwrite("Original_Image.png", originalImage)
-            cv2.imwrite("Enhanced_Image.png", enhancedImage)
+            cv2.imwrite("1_Original_Image.png", originalImage)
+            cv2.imwrite("2_Enhanced_Image.png", enhancedImage)
+            cv2.imwrite("2_Enhanced_Image_Medium.png", enhancedImageMedium)
             print("Gambar asli dan gambar dengan kontras tinggi berhasil disimpan.")
+
+
+            cv2.imwrite("Original_Image.png", image)
+            # Konversi gambar dari BGR ke HSV
+            hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+            # Tentukan ukuran area untuk ekstraksi nilai (50x50)
+            area_size = 175
+
+            # Tentukan posisi untuk mengambil area 50x50 (misalnya di pusat gambar)
+            height, width, _ = hsv_image.shape
+            start_x = (width // 2) - (area_size // 2)
+            start_y = (height // 2) - (area_size // 2)
+
+            # Ekstraksi area 50x50
+            hsv_area = hsv_image[start_y:start_y + area_size, start_x:start_x + area_size]
+
+            # Pisahkan channel Hue, Saturation, dan Value
+            hue_channel = hsv_area[:, :, 0]  # Channel Hue
+            saturation_channel = hsv_area[:, :, 1]  # Channel Saturation
+            value_channel = hsv_area[:, :, 2]  # Channel Value
+
+            # Hitung jumlah total data Hue, Saturation, dan Value dalam area 50x50
+            sum_hue = np.sum(hue_channel)
+            sum_saturation = np.sum(saturation_channel)
+            sum_value = np.sum(value_channel)
+
+            # Menghitung rata-rata nilai Hue, Saturation, dan Value
+            average_hue = sum_hue / (area_size * area_size)  # Karena area 50x50, jumlah total piksel adalah 2500
+            average_saturation = sum_saturation / (area_size * area_size)
+            average_value = sum_value / (area_size * area_size)
+
+            # Menyimpan area 50x50 dan gambar HSV
+            cv2.imwrite("hsv_area_50x50.png", hsv_area)
+
+            # Debug print statements x 
+            print(f"Average Hue: {average_hue}")
+            print(f"Average Saturation: {average_saturation}")
+            print(f"Average Value: {average_value}")
+
+
                     # Konversi gambar ke Grayscale
             img_gray = cv2.cvtColor(image, cv2.COLOR_RGBA2GRAY)
 
@@ -176,7 +221,7 @@ class WebcamApp:
 
                 # Segmentasikan objek dengan masker
                 segmented_image = cv2.bitwise_and(cropped_image, cropped_image, mask=mask)
-                cv2.imwrite('segmentedd.png', segmented_image)
+                cv2.imwrite('3_segmentedd.png', segmented_image)
                 # Temukan kontur pada gambar masker
                 contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -207,15 +252,15 @@ class WebcamApp:
                 result_with_inner_contour = cv2.bitwise_and(cropped_image, cropped_image, mask=inner_mask)
 
                 # Simpan hasil akhir dengan kontur di dalam kontur
-                cv2.imwrite('result_with_inner_contour.png', result_with_inner_contour)
+                cv2.imwrite('4_result_with_inner_contour.png', result_with_inner_contour)
 
                 if len(segmented_image.shape) == 3:
                     # Konversi citra berwarna (3 channel) menjadi grayscale
                     segmented_image_gray = cv2.cvtColor(segmented_image, cv2.COLOR_RGBA2GRAY)
-                    cv2.imwrite('6_segmented_image_gray.png', segmented_image_gray)
+                    cv2.imwrite('5_segmented_image_gray.png', segmented_image_gray)
                     
                     inner_segmented_gray = cv2.cvtColor(result_with_inner_contour, cv2.COLOR_RGBA2GRAY)
-                    cv2.imwrite('Inner_Segmented_Gray.png', inner_segmented_gray)
+                    cv2.imwrite('6_Inner_Segmented_Gray.png', inner_segmented_gray)
                                         # Tentukan rentang warna putih
                     lower_white = np.array([173], dtype=np.uint8)
                     upper_white = np.array([180], dtype=np.uint8)
@@ -233,7 +278,7 @@ class WebcamApp:
                     # Ganti piksel putih dengan warna kuning pada gambar BGR
                     white_mask_bgr = cv2.cvtColor(white_mask, cv2.COLOR_GRAY2BGR)
                     white_mask_bgr[np.where((white_mask_bgr == [255, 255, 255]).all(axis=2))] = [0, 0, 255]
-                    cv2.imwrite('WhiteMaskBgr.png', white_mask_bgr)
+                    cv2.imwrite('7_WhiteMaskBgr.png', white_mask_bgr)
                     
                     print(f"Jumlah piksel putih: {white_pixels}")
                     print(f"Total piksel: {total_pixels}")
@@ -247,7 +292,7 @@ class WebcamApp:
                     inner_segmented_hsv= cv2.cvtColor(result_with_inner_contour, cv2.COLOR_BGR2HSV)
                   
                     segmented_image_hsv = cv2.cvtColor(inner_segmented_hsv, cv2.COLOR_BGR2HSV)
-                    cv2.imwrite('Image_Inner_HSV.png', segmented_image_hsv)
+                    cv2.imwrite('8_Image_Inner_HSV.png', segmented_image_hsv)
                     
                     # Rentang bawah dan atas warna kuning# Rentang bawah dan atas warna kuning
                     lower_yellow = np.array([20, 100, 100])  # H, S, V
@@ -274,7 +319,7 @@ class WebcamApp:
                     blocked_image = cv2.bitwise_and(result_with_inner_contour, result_with_inner_contour, mask=~yellow_mask)
 
                     # Simpan gambar hasil pemblokiran warna kuning
-                    cv2.imwrite('blockingHSV.png', blocked_image)
+                    cv2.imwrite('9_blockingHSV.png', blocked_image)
 
                     # Pisahkan channel H, S, V
                     hue_channel = inner_segmented_hsv[:, :, 0]
@@ -300,11 +345,134 @@ class WebcamApp:
                     #     UniformCategory = "Tajem"
                     # else:
                     #     UniformCategory = "Laen"
+                    inner_segmented_hsv = cv2.cvtColor(result_with_inner_contour, cv2.COLOR_BGR2HSV)
+
+                    # Definisikan rentang untuk berbagai tingkatan kuning
+                    lower_light_yellow = np.array([20, 50, 150])  # Kuning pucat
+                    upper_light_yellow = np.array([30, 150, 255])
+
+                    lower_medium_yellow = np.array([20, 200, 100])  # Kuning medium
+                    upper_medium_yellow = np.array([25, 250, 255])
+
+                    lower_bright_yellow = np.array([30, 200, 200])  # Kuning terang
+                    upper_bright_yellow = np.array([40, 255, 255])
+
+                    lower_brightest_yellow = np.array([30, 225, 225])  # Kuning terang
+                    upper_brightest_yellow = np.array([40, 255, 255])
+
+                    lower_brightFinal_yellow = np.array([20, 225, 225])  # Kuning terang
+                    upper_brightFinal_yellow = np.array([25, 255, 255])
+
+                    # Mask untuk setiap gradien
+                    mask_light_yellow = cv2.inRange(inner_segmented_hsv, lower_light_yellow, upper_light_yellow)
+                    mask_medium_yellow = cv2.inRange(inner_segmented_hsv, lower_medium_yellow, upper_medium_yellow)
+                    mask_bright_yellow = cv2.inRange(inner_segmented_hsv, lower_bright_yellow, upper_bright_yellow)
+                    mask_brightest_yellow = cv2.inRange(inner_segmented_hsv, lower_brightest_yellow, upper_brightest_yellow)
+                    mask_brightFinal_yellow = cv2.inRange(inner_segmented_hsv, lower_brightFinal_yellow, upper_brightFinal_yellow)
+
+                    # Gabungkan semua mask
+                    mask_yellow_gradient = mask_light_yellow | mask_medium_yellow | mask_bright_yellow
+
+                    # Bersihkan mask (opsional)
+                    kernel = np.ones((3, 3), np.uint8)
+                    mask_yellow_gradient = cv2.morphologyEx(mask_yellow_gradient, cv2.MORPH_CLOSE, kernel)
+
+                    # Tampilkan hasil
+                    cv2.imwrite('10_GradienKuning.png', mask_yellow_gradient)
+
+                    result = cv2.bitwise_and(result_with_inner_contour, result_with_inner_contour, mask=mask_yellow_gradient)
+                    cv2.imwrite('11_DeteksiGradien.png', result)
+
+                    result_light_yellow = cv2.bitwise_and(result_with_inner_contour, result_with_inner_contour, mask=mask_light_yellow)
+                    result_medium_yellow = cv2.bitwise_and(result_with_inner_contour, result_with_inner_contour, mask=mask_medium_yellow)
+                    result_bright_yellow = cv2.bitwise_and(result_with_inner_contour, result_with_inner_contour, mask=mask_bright_yellow)
+                    result_brightest_yellow = cv2.bitwise_and(result_with_inner_contour, result_with_inner_contour, mask=mask_brightest_yellow)
+                    result_brightFinal_yellow = cv2.bitwise_and(result_with_inner_contour, result_with_inner_contour, mask=mask_brightFinal_yellow)
+
+                    cv2.imwrite('12_KuningPucat.png', result_light_yellow)
+                    cv2.imwrite('13_KuningMedium.png', result_medium_yellow)
+                    cv2.imwrite('14_KuningTerang.png', result_bright_yellow)
+                    cv2.imwrite('15_KuningPalingTerang.png', result_brightest_yellow)
+                    cv2.imwrite('16_KuningFinal.png', result_brightFinal_yellow)
+
+                    # Total piksel dalam gambar
+                    total_pixels = mask_yellow_gradient.size  # Total piksel di seluruh gambar
+
+                    # Hitung jumlah piksel untuk setiap kategori
+                    pixels_light_yellow = np.count_nonzero(mask_light_yellow)
+                    pixels_medium_yellow = np.count_nonzero(mask_medium_yellow)
+                    pixels_bright_yellow = np.count_nonzero(mask_bright_yellow)
+                    pixels_brightest_yellow = np.count_nonzero(mask_brightest_yellow)
+                    pixels_brightFinal_yellow = np.count_nonzero(mask_brightFinal_yellow)
+                    pixels_yellow_gradient = np.count_nonzero(mask_yellow_gradient)
+
+                    # Hitung persentase
+                    percentage_light_yellow = (pixels_light_yellow / total_pixels) * 100
+                    percentage_medium_yellow = (pixels_medium_yellow / total_pixels) * 100
+                    percentage_bright_yellow = (pixels_bright_yellow / total_pixels) * 100
+                    percentage_brightest_yellow = (pixels_brightest_yellow / total_pixels) * 100
+                    percentage_brightFinal_Yellow = (pixels_brightFinal_yellow / total_pixels) * 100
+                    percentage_yellow_gradient = (pixels_yellow_gradient / total_pixels) * 100
+
+                    # Cetak hasil
+                    print("Jumlah Piksel Kuning Pucat:", pixels_light_yellow, f"({percentage_light_yellow:.2f}%)")
+                    print("Jumlah Piksel Kuning Medium:", pixels_medium_yellow, f"({percentage_medium_yellow:.2f}%)")
+                    print("Jumlah Piksel Kuning Terang:", pixels_bright_yellow, f"({percentage_bright_yellow:.2f}%)")
+                    print("Jumlah Piksel Kuning Paling Terang:", pixels_brightest_yellow, f"({percentage_brightest_yellow:.2f}%)")
+                    print("Jumlah Piksel Kuning Paling Terang:", pixels_brightFinal_yellow, f"({percentage_brightFinal_Yellow:.2f}%)")
+                    print("Jumlah Total Piksel Kuning:", pixels_yellow_gradient, f"({percentage_yellow_gradient:.2f}%)")
+
+
+                    if percentage_yellow_gradient > 17.2:
+                        if percentage_brightest_yellow >= 4:
+                            if  percentage_medium_yellow < 3.6:
+                                if 99 <= average_hue <= 103 and 226 <= average_saturation <= 245 and 91 <= average_value <= 97:
+                                    Uniform = "Tajem"
+                                else:
+                                    Uniform = "Jablak"
+                            else:
+                                Uniform = "Jablak"
+                        else:
+                            Uniform = "Jablak"
+                    elif 12 <= percentage_yellow_gradient <=17.2:
+                        Uniform = "Jablak"
+                    elif percentage_yellow_gradient < 12:
+                        if pixels_light_yellow > 1020:
+                          Uniform = "Jablak"
+                        else:
+                            Uniform = "Belang"
+                    else:
+                        Uniform = "RRQ IDOK"
+
+                    if average_hue <= 101.8:
+                        color_category = "BB"
+                    elif 101.8 < average_hue <= 103.1:
+                        if average_value <= 95:
+                            color_category = "B"
+                        else:
+                            color_category = "MM"
+                    elif 103.1 < average_hue <= 104.4:
+                        if average_value <=95:
+                            color_category = "B"
+                        if 95 < average_value <= 97.7:
+                            color_category = "MM"
+                        else: 
+                            color_category = "M"
+                    elif 104.4 < average_hue <= 105.2:
+                        if average_value <= 94.3:
+                            color_category = "B"
+                        else:  # average_value > 122
+                            color_category = "M"
+                    elif average_hue > 105.2:
+                        color_category = "M"
+                    else:
+                        color_category = "Tidak Terdefinisi"
+
 
 
                     self.label_dimensions.config(
                         # \nWarna  :  {dominant_value}\nFrekwensi :  {domi`nant_frequency}\nKerusakan :  {percentageKerusakan:.2f}%
-                        text=f"Grade: {UniformCategory}\nrata2 Hue: {hue_mean:.1f}\nrata2 Saturasi: {saturation_mean:.1f}\nrata2 Value: {value_mean:.1f}"
+                        text=f"Grade: {Uniform} | {color_category}\nrata2 Hue: {hue_mean:.1f}\nrata2 Saturasi: {saturation_mean:.1f}\nrata2 Value: {value_mean:.1f}\n\nH: {average_hue:.1f}\nS: {average_saturation:.1f}\nV: {average_value:.1f}"
                     )
               
                 else: 
