@@ -137,7 +137,7 @@ class WebcamApp:
                 print("Gambar tidak ditemukan di path:", path)
                 return
             # Meningkatkan kontras dan kecerahan
-            alpha = 4  # Faktor kontras (1.0 = tidak ada perubahan)
+            alpha = 2.5  # Faktor kontras (1.0 = tidak ada perubahan)
             beta = 0    # Faktor kecerahan (positif = lebih terang, negatif = lebih gelap)
             enhancedImage = cv2.convertScaleAbs(originalImage, alpha=alpha, beta=beta)
             alphaMedium = 3  # Faktor kontras (1.0 = tidak ada perubahan)
@@ -349,7 +349,7 @@ class WebcamApp:
 
                     # Definisikan rentang untuk berbagai tingkatan kuning
                     lower_light_yellow = np.array([20, 50, 150])  # Kuning pucat
-                    upper_light_yellow = np.array([30, 150, 255])
+                    upper_light_yellow = np.array([30, 180, 255])
 
                     lower_medium_yellow = np.array([20, 200, 100])  # Kuning medium
                     upper_medium_yellow = np.array([25, 250, 255])
@@ -423,7 +423,7 @@ class WebcamApp:
                     print("Jumlah Total Piksel Kuning:", pixels_yellow_gradient, f"({percentage_yellow_gradient:.2f}%)")
 
 
-                    if percentage_yellow_gradient > 17.2:
+                    if percentage_yellow_gradient > 32:
                         if percentage_brightest_yellow >= 4:
                             if  percentage_medium_yellow < 3.6:
                                 if 99 <= average_hue <= 103 and 226 <= average_saturation <= 245 and 91 <= average_value <= 97:
@@ -434,13 +434,23 @@ class WebcamApp:
                                 Uniform = "Jablak"
                         else:
                             Uniform = "Jablak"
-                    elif 12 <= percentage_yellow_gradient <=17.2:
-                        Uniform = "Jablak"
-                    elif percentage_yellow_gradient < 12:
-                        if pixels_light_yellow > 1020:
-                          Uniform = "Jablak"
+                    elif 27 <= percentage_yellow_gradient <=32:
+                        if pixels_light_yellow >= 2300: 
+                            Uniform = "Jablak"
                         else:
                             Uniform = "Belang"
+                    elif 23 < percentage_yellow_gradient < 27:
+                        if pixels_light_yellow >= 2300:
+                            Uniform = "Jablak"
+                        else:
+                            Uniform = "Belang"
+                    elif 20 < percentage_yellow_gradient <= 23:
+                        if pixels_light_yellow >= 850:
+                            Uniform = "Jablak"
+                        else:
+                            Uniform = "Belang"
+                    elif percentage_yellow_gradient <= 20:
+                        Uniform = "Belang"
                     else:
                         Uniform = "RRQ IDOK"
 
@@ -472,7 +482,7 @@ class WebcamApp:
 
                     self.label_dimensions.config(
                         # \nWarna  :  {dominant_value}\nFrekwensi :  {domi`nant_frequency}\nKerusakan :  {percentageKerusakan:.2f}%
-                        text=f"Grade: {Uniform} | {color_category}\nrata2 Hue: {hue_mean:.1f}\nrata2 Saturasi: {saturation_mean:.1f}\nrata2 Value: {value_mean:.1f}\n\nH: {average_hue:.1f}\nS: {average_saturation:.1f}\nV: {average_value:.1f}"
+                        text=f"Grade: {Uniform} | {color_category}\nGradasi: {percentage_yellow_gradient:.1f}\nCerah: {pixels_light_yellow:.1f} | {percentage_light_yellow:.1f}\nSedang: {percentage_medium_yellow:.1f}\nKuning: {percentage_brightest_yellow:.1f}\nPixel: {pixels_light_yellow:.1f}"
                     )
               
                 else: 
