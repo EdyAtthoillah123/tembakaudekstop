@@ -137,17 +137,13 @@ class WebcamApp:
                 print("Gambar tidak ditemukan di path:", path)
                 return
             # Meningkatkan kontras dan kecerahan
-            alpha = 2.5  # Faktor kontras (1.0 = tidak ada perubahan)
+            alpha = 3.2  # Faktor kontras (1.0 = tidak ada perubahan)
             beta = 0    # Faktor kecerahan (positif = lebih terang, negatif = lebih gelap)
             enhancedImage = cv2.convertScaleAbs(originalImage, alpha=alpha, beta=beta)
-            alphaMedium = 3  # Faktor kontras (1.0 = tidak ada perubahan)
-            betaMEdium = 0    # Faktor kecerahan (positif = lebih terang, negatif = lebih gelap)
-            enhancedImageMedium = cv2.convertScaleAbs(originalImage, alpha=alphaMedium, beta=betaMEdium)
 
             # Menyimpan hasil gambar
             cv2.imwrite("1_Original_Image.png", originalImage)
             cv2.imwrite("2_Enhanced_Image.png", enhancedImage)
-            cv2.imwrite("2_Enhanced_Image_Medium.png", enhancedImageMedium)
             print("Gambar asli dan gambar dengan kontras tinggi berhasil disimpan.")
 
 
@@ -349,26 +345,18 @@ class WebcamApp:
 
                     # Definisikan rentang untuk berbagai tingkatan kuning
                     lower_light_yellow = np.array([20, 50, 150])  # Kuning pucat
-                    upper_light_yellow = np.array([30, 180, 255])
+                    upper_light_yellow = np.array([30, 200, 255])
 
-                    lower_medium_yellow = np.array([20, 200, 100])  # Kuning medium
-                    upper_medium_yellow = np.array([25, 250, 255])
+                    lower_medium_yellow = np.array([25, 100, 100])  # Kuning medium
+                    upper_medium_yellow = np.array([35, 255, 255])
 
-                    lower_bright_yellow = np.array([30, 200, 200])  # Kuning terang
+                    lower_bright_yellow = np.array([30, 100, 100])  # Kuning terang
                     upper_bright_yellow = np.array([40, 255, 255])
-
-                    lower_brightest_yellow = np.array([30, 225, 225])  # Kuning terang
-                    upper_brightest_yellow = np.array([40, 255, 255])
-
-                    lower_brightFinal_yellow = np.array([20, 225, 225])  # Kuning terang
-                    upper_brightFinal_yellow = np.array([25, 255, 255])
 
                     # Mask untuk setiap gradien
                     mask_light_yellow = cv2.inRange(inner_segmented_hsv, lower_light_yellow, upper_light_yellow)
                     mask_medium_yellow = cv2.inRange(inner_segmented_hsv, lower_medium_yellow, upper_medium_yellow)
                     mask_bright_yellow = cv2.inRange(inner_segmented_hsv, lower_bright_yellow, upper_bright_yellow)
-                    mask_brightest_yellow = cv2.inRange(inner_segmented_hsv, lower_brightest_yellow, upper_brightest_yellow)
-                    mask_brightFinal_yellow = cv2.inRange(inner_segmented_hsv, lower_brightFinal_yellow, upper_brightFinal_yellow)
 
                     # Gabungkan semua mask
                     mask_yellow_gradient = mask_light_yellow | mask_medium_yellow | mask_bright_yellow
@@ -377,24 +365,6 @@ class WebcamApp:
                     kernel = np.ones((3, 3), np.uint8)
                     mask_yellow_gradient = cv2.morphologyEx(mask_yellow_gradient, cv2.MORPH_CLOSE, kernel)
 
-                    # Tampilkan hasil
-                    cv2.imwrite('10_GradienKuning.png', mask_yellow_gradient)
-
-                    result = cv2.bitwise_and(result_with_inner_contour, result_with_inner_contour, mask=mask_yellow_gradient)
-                    cv2.imwrite('11_DeteksiGradien.png', result)
-
-                    result_light_yellow = cv2.bitwise_and(result_with_inner_contour, result_with_inner_contour, mask=mask_light_yellow)
-                    result_medium_yellow = cv2.bitwise_and(result_with_inner_contour, result_with_inner_contour, mask=mask_medium_yellow)
-                    result_bright_yellow = cv2.bitwise_and(result_with_inner_contour, result_with_inner_contour, mask=mask_bright_yellow)
-                    result_brightest_yellow = cv2.bitwise_and(result_with_inner_contour, result_with_inner_contour, mask=mask_brightest_yellow)
-                    result_brightFinal_yellow = cv2.bitwise_and(result_with_inner_contour, result_with_inner_contour, mask=mask_brightFinal_yellow)
-
-                    cv2.imwrite('12_KuningPucat.png', result_light_yellow)
-                    cv2.imwrite('13_KuningMedium.png', result_medium_yellow)
-                    cv2.imwrite('14_KuningTerang.png', result_bright_yellow)
-                    cv2.imwrite('15_KuningPalingTerang.png', result_brightest_yellow)
-                    cv2.imwrite('16_KuningFinal.png', result_brightFinal_yellow)
-
                     # Total piksel dalam gambar
                     total_pixels = mask_yellow_gradient.size  # Total piksel di seluruh gambar
 
@@ -402,57 +372,75 @@ class WebcamApp:
                     pixels_light_yellow = np.count_nonzero(mask_light_yellow)
                     pixels_medium_yellow = np.count_nonzero(mask_medium_yellow)
                     pixels_bright_yellow = np.count_nonzero(mask_bright_yellow)
-                    pixels_brightest_yellow = np.count_nonzero(mask_brightest_yellow)
-                    pixels_brightFinal_yellow = np.count_nonzero(mask_brightFinal_yellow)
                     pixels_yellow_gradient = np.count_nonzero(mask_yellow_gradient)
 
                     # Hitung persentase
                     percentage_light_yellow = (pixels_light_yellow / total_pixels) * 100
                     percentage_medium_yellow = (pixels_medium_yellow / total_pixels) * 100
                     percentage_bright_yellow = (pixels_bright_yellow / total_pixels) * 100
-                    percentage_brightest_yellow = (pixels_brightest_yellow / total_pixels) * 100
-                    percentage_brightFinal_Yellow = (pixels_brightFinal_yellow / total_pixels) * 100
                     percentage_yellow_gradient = (pixels_yellow_gradient / total_pixels) * 100
 
                     # Cetak hasil
                     print("Jumlah Piksel Kuning Pucat:", pixels_light_yellow, f"({percentage_light_yellow:.2f}%)")
                     print("Jumlah Piksel Kuning Medium:", pixels_medium_yellow, f"({percentage_medium_yellow:.2f}%)")
                     print("Jumlah Piksel Kuning Terang:", pixels_bright_yellow, f"({percentage_bright_yellow:.2f}%)")
-                    print("Jumlah Piksel Kuning Paling Terang:", pixels_brightest_yellow, f"({percentage_brightest_yellow:.2f}%)")
-                    print("Jumlah Piksel Kuning Paling Terang:", pixels_brightFinal_yellow, f"({percentage_brightFinal_Yellow:.2f}%)")
                     print("Jumlah Total Piksel Kuning:", pixels_yellow_gradient, f"({percentage_yellow_gradient:.2f}%)")
 
+                    # Simpan hasil gambar
+                    cv2.imwrite('10_GradienKuning.png', mask_yellow_gradient)
+                    result = cv2.bitwise_and(result_with_inner_contour, result_with_inner_contour, mask=mask_yellow_gradient)
+                    cv2.imwrite('11_DeteksiGradien.png', result)
 
-                    if percentage_yellow_gradient > 32:
-                        if percentage_brightest_yellow >= 4:
-                            if  percentage_medium_yellow < 3.6:
-                                if 99 <= average_hue <= 103 and 226 <= average_saturation <= 245 and 91 <= average_value <= 97:
-                                    Uniform = "Tajem"
-                                else:
-                                    Uniform = "Jablak"
+                    result_light_yellow = cv2.bitwise_and(result_with_inner_contour, result_with_inner_contour, mask=mask_light_yellow)
+                    result_medium_yellow = cv2.bitwise_and(result_with_inner_contour, result_with_inner_contour, mask=mask_medium_yellow)
+                    result_bright_yellow = cv2.bitwise_and(result_with_inner_contour, result_with_inner_contour, mask=mask_bright_yellow)
+
+                    cv2.imwrite('12_KuningPucat.png', result_light_yellow)
+                    cv2.imwrite('13_KuningMedium.png', result_medium_yellow)
+                    cv2.imwrite('14_KuningTerang.png', result_bright_yellow)
+
+                    if percentage_yellow_gradient >= 7.4:
+                        if percentage_light_yellow >= 2.45:
+                            if percentage_yellow_gradient >=31:
+                                Uniform = "Tajem"
                             else:
                                 Uniform = "Jablak"
                         else:
-                            Uniform = "Jablak"
-                    elif 27 <= percentage_yellow_gradient <=32:
-                        if pixels_light_yellow >= 2300: 
-                            Uniform = "Jablak"
-                        else:
                             Uniform = "Belang"
-                    elif 23 < percentage_yellow_gradient < 27:
-                        if pixels_light_yellow >= 2300:
-                            Uniform = "Jablak"
-                        else:
-                            Uniform = "Belang"
-                    elif 20 < percentage_yellow_gradient <= 23:
-                        if pixels_light_yellow >= 850:
-                            Uniform = "Jablak"
-                        else:
-                            Uniform = "Belang"
-                    elif percentage_yellow_gradient <= 20:
-                        Uniform = "Belang"
                     else:
-                        Uniform = "RRQ IDOK"
+                        Uniform = "Belang"
+
+                    # if percentage_yellow_gradient >= 7.4:
+                    #     if percentage_light_yellow >= 2.35:
+                    #         Uniform = "Jablak"
+                    #     else:
+                    #         Uniform = "Belang"
+                    # else:
+                    #     Uniform = "Belang"
+
+                    # if percentage_yellow_gradient > 32:
+                    #     if percentage_brightest_yellow >= 4:
+                    #         if  percentage_medium_yellow < 3.6:
+                    #             if 99 <= average_hue <= 103 and 226 <= average_saturation <= 245 and 91 <= average_value <= 97:
+                    #                 Uniform = "Tajem"
+                    #             else:
+                    #                 Uniform = "Jablak"
+                    #         else:
+                    #             Uniform = "Jablak"
+                    #     else:
+                    #         Uniform = "Jablak"
+                    # elif 27 <= percentage_yellow_gradient <=32:
+                    #     if percentage_light_yellow > 1.3:
+                    #         Uniform = "Jablak"
+                    #     else:
+                    #         Uniform = "Belang"
+                    # elif percentage_yellow_gradient < 27:
+                    #     if percentage_light_yellow > 1.3:
+                    #         Uniform = "Jablak"
+                    #     else:
+                    #         Uniform = "Belang"
+                    # else:
+                    #     Uniform = "RRQ IDOK"
 
                     if average_hue <= 101.8:
                         color_category = "BB"
@@ -482,7 +470,7 @@ class WebcamApp:
 
                     self.label_dimensions.config(
                         # \nWarna  :  {dominant_value}\nFrekwensi :  {domi`nant_frequency}\nKerusakan :  {percentageKerusakan:.2f}%
-                        text=f"Grade: {Uniform} | {color_category}\nGradasi: {percentage_yellow_gradient:.1f}\nCerah: {pixels_light_yellow:.1f} | {percentage_light_yellow:.1f}\nSedang: {percentage_medium_yellow:.1f}\nKuning: {percentage_brightest_yellow:.1f}\nPixel: {pixels_light_yellow:.1f}"
+                        text=f"Grade: | {color_category}\nGradasi: {Uniform} | {percentage_yellow_gradient:.1f}\npC: {pixels_light_yellow:.1f}\nCerah: {pixels_light_yellow:.1f} | {percentage_light_yellow:.1f}\nSedang: {percentage_medium_yellow:.1f}\n{percentage_bright_yellow:.1f}"
                     )
               
                 else: 
