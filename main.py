@@ -322,21 +322,6 @@ class WebcamApp:
                     saturation_channel = inner_segmented_hsv[:, :, 1]
                     value_channel = inner_segmented_hsv[:, :, 2]            
 
-                    # Hitung statistik untuk Hue
-                    hue_mean = np.mean(hue_channel)
-                    hue_std_dev = np.std(hue_channel)
-                    hue_variance = np.var(hue_channel)
-
-                    # Hitung statistik untuk Saturation
-                    saturation_mean = np.mean(saturation_channel)
-                    saturation_std_dev = np.std(saturation_channel)
-                    saturation_variance = np.var(saturation_channel)
-
-                    # Hitung statistik untuk Value
-                    value_mean = np.mean(value_channel)
-                    value_std_dev = np.std(value_channel)
-                    value_variance = np.var(value_channel)
-
                     # if 7.7 < hue_mean < 9 and 108 <= saturation_mean <= 130 and 77 <= value_mean <= 100:
                     #     UniformCategory = "Tajem"
                     # else:
